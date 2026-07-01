@@ -5,6 +5,7 @@ from app.db.session import get_db
 from app.models.user import User
 from app.services.tokens import create_access_token, create_refresh_token
 from app.utils.hashing import hash_password, verify_password
+from app.middleware.exception_handler import response_handler
 
 router = APIRouter(prefix="/user", tags=["Users"])
 
@@ -23,11 +24,15 @@ def register_user(data: RegisterUser, db: Session = Depends(get_db)):
     access_token = create_access_token(new_user)
     refresh_token = create_refresh_token(new_user)
 
-    return {
-        "status": True,
-        "access_token": access_token,
-        "refresh_token": refresh_token
-    }
+    return response_handler(
+        status=True,
+        message="Register successful",
+        data={
+            "access_token": access_token,
+            "refresh_token": refresh_token
+        },
+        status_code=201
+    )
 
 
 @router.post("/login")
@@ -43,9 +48,12 @@ def login_user(data: LoginUser, db: Session = Depends(get_db)):
     access_token = create_access_token(db_user)
     refresh_token = create_refresh_token(db_user)
 
-    return {
-        "status": True,
-        "access_token": access_token,
-        "refresh_token": refresh_token
-    }
-
+    return response_handler(
+        status=True,
+        message="Login successful",
+        data={
+            "access_token": access_token,
+            "refresh_token": refresh_token
+        },
+        status_code=200
+    )
