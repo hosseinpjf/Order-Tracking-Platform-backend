@@ -138,7 +138,17 @@ def get_me(payload = Depends(JWTBearer()), db: Session = Depends(get_db)):
             "name": db_user.name,
             "phone": db_user.phone,
             "role": db_user.role,
-            "created_at": db_user.created_at
+            "created_at": db_user.created_at,
+            "devices": [
+                {
+                    "id": device.id,
+                    "device_id": device.device_id,
+                    "ip_address": device.ip_address,
+                    "user_agent": device.user_agent,
+                    "last_login_at": device.last_login_at
+                }
+                for device in db_user.devices
+            ]
         },
         status_code=200
     )
@@ -161,7 +171,17 @@ def get_users(payload = Depends(JWTBearer()), db: Session = Depends(get_db)):
                 "name": user.name,
                 "phone": user.phone,
                 "role": user.role,
-                "created_at": user.created_at
+                "created_at": user.created_at,
+                "devices": [
+                    {
+                        "id": device.id,
+                        "device_id": device.device_id,
+                        "ip_address": device.ip_address,
+                        "user_agent": device.user_agent,
+                        "last_login_at": device.last_login_at
+                    }
+                    for device in user.devices
+                ]
             }
             for user in db_users
         ],
