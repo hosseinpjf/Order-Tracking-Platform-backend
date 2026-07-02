@@ -6,6 +6,7 @@ from app.models.user import User
 from app.services.tokens import create_access_token, create_refresh_token
 from app.utils.hashing import hash_password, verify_password
 from app.middleware.exception_handler import response_handler
+from app.services.jwt_bearer import JWTBearer
 
 router = APIRouter(prefix="/user", tags=["Users"])
 
@@ -54,6 +55,27 @@ def login_user(data: LoginUser, db: Session = Depends(get_db)):
         data={
             "access_token": access_token,
             "refresh_token": refresh_token
+        },
+        status_code=200
+    )
+
+
+@router.get("/me")
+def get_user(payload = Depends(JWTBearer()), db: Session = Depends(get_db)):
+    db_user = db.query(User).filter(User.id == payload["sub"]).first()
+
+    if not db_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    return response_handler(
+        status=True,
+        message="User found",
+        data={
+            "id": db_user.id,
+            "name": db_user.name,
+            "phone": db_user.phone,
+            "role": db_user.role,
+            "created_at": db_user.created_at
         },
         status_code=200
     )
