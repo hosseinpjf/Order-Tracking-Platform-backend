@@ -61,7 +61,7 @@ def login_user(data: LoginUser, db: Session = Depends(get_db)):
 
 
 @router.get("/me")
-def get_user(payload = Depends(JWTBearer()), db: Session = Depends(get_db)):
+def get_me(payload = Depends(JWTBearer()), db: Session = Depends(get_db)):
     db_user = db.query(User).filter(User.id == payload["sub"]).first()
 
     if not db_user:
@@ -77,5 +77,29 @@ def get_user(payload = Depends(JWTBearer()), db: Session = Depends(get_db)):
             "role": db_user.role,
             "created_at": db_user.created_at
         },
+        status_code=200
+    )
+
+@router.get("/users")
+def get_users(payload = Depends(JWTBearer()), db: Session = Depends(get_db)):
+    
+    if payload["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    db_users = db.query(User).filter(User.id != payload["sub"]).all()
+
+    return response_handler(
+        status=True,
+        message="All users fetched",
+        data=[
+            {
+                "id": user.id,
+                "name": user.name,
+                "phone": user.phone,
+                "role": user.role,
+                "created_at": user.created_at
+            }
+            for user in db_users
+        ],
         status_code=200
     )
