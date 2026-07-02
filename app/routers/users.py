@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from app.schemas.user import RegisterUser, LoginUser, ChangeRole
 from app.schemas.device_tracking import CreateDevice, UpdateDevice
 from app.db.session import get_db
-from app.models.user import User, UserRole
+from app.models.user import User
 from app.models.device_tracking import DeviceTracking
 from app.services.tokens import create_access_token, create_refresh_token
 from app.utils.hashing import hash_password, verify_password, hash_token
@@ -192,7 +192,7 @@ def get_users(payload = Depends(JWTBearer()), db: Session = Depends(get_db)):
 @router.patch("/change-role")
 def change_role(data: ChangeRole, payload = Depends(JWTBearer()), db: Session = Depends(get_db)):
     
-    if payload["role"] != UserRole.admin.value:
+    if payload["role"] != "admin":
         raise HTTPException(status_code=403, detail="Access denied")
     
     if payload["sub"] == data.user_id:
@@ -224,3 +224,24 @@ def change_role(data: ChangeRole, payload = Depends(JWTBearer()), db: Session = 
         status_code=200
     )
 
+
+@router.delete("/delete/{user_id}")
+def delete_user(user_id: str, payload = Depends(JWTBearer()), db: Session = Depends(get_db)):
+
+    if payload["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    db_user = db.query(User).filter(User.id == user_id).first()
+
+    if not db_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    db.delete(db_user)
+    db.commit()
+
+    return response_handler(
+        status=True,
+        message="User deleted successfully",
+        data=None,
+        status_code=200
+    )
