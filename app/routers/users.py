@@ -1,63 +1,126 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
+from datetime import datetime, timezone
 from app.schemas.user import RegisterUser, LoginUser, ChangeRole
+from app.schemas.device_tracking import CreateDevice, UpdateDevice
 from app.db.session import get_db
 from app.models.user import User, UserRole
+from app.models.device_tracking import DeviceTracking
 from app.services.tokens import create_access_token, create_refresh_token
-from app.utils.hashing import hash_password, verify_password
+from app.utils.hashing import hash_password, verify_password, hash_token
 from app.middleware.exception_handler import response_handler
 from app.services.jwt_bearer import JWTBearer
 
 router = APIRouter(prefix="/user", tags=["Users"])
 
 @router.post("/register")
-def register_user(data: RegisterUser, db: Session = Depends(get_db)):
-    db_user = db.query(User).filter(User.phone == data.phone).first()
-    if db_user:
-        raise HTTPException(status_code=409, detail="Phone already exists")
-    
-    new_user = User(name = data.name, phone = data.phone, password = hash_password(data.password))
+def register_user(request: Request, user_data: RegisterUser, device_data: CreateDevice, db: Session = Depends(get_db)):
+    try:
+        db_user = db.query(User).filter(User.phone == user_data.phone).first()
+        if db_user:
+            raise HTTPException(status_code=409, detail="Phone already exists")
+        
+        new_user = User(
+            name = user_data.name, 
+            phone = user_data.phone, 
+            password = hash_password(user_data.password)
+        )
+        db.add(new_user)
+        db.flush()
+        db.refresh(new_user)
 
-    db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
+        access_token = create_access_token(new_user)
+        refresh_token = create_refresh_token(new_user)
 
-    access_token = create_access_token(new_user)
-    refresh_token = create_refresh_token(new_user)
+        # ----- Device Tracking -----
+        user_agent = request.headers.get("User-Agent")
+        ip_address = request.client.host
 
-    return response_handler(
-        status=True,
-        message="Register successful",
-        data={
-            "access_token": access_token,
-            "refresh_token": refresh_token
-        },
-        status_code=201
-    )
+        new_device = DeviceTracking(
+            user_id = new_user.id, 
+            device_id = device_data.device_id,
+            user_agent = user_agent,
+            ip_address = ip_address,
+            refresh_token = hash_token(refresh_token)
+        )
+        db.add(new_device)
+
+        db.commit()
+
+        return response_handler(
+            status=True,
+            message="Register successful",
+            data={
+                "access_token": access_token,
+                "refresh_token": refresh_token
+            },
+            status_code=201
+        )
+    except HTTPException as http_error:
+        db.rollback()
+        raise http_error
+
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Registration failed")
 
 
 @router.post("/login")
-def login_user(data: LoginUser, db: Session = Depends(get_db)):
-    db_user = db.query(User).filter(User.phone == data.phone).first()
+def login_user(request: Request, user_data: LoginUser, device_data: UpdateDevice, db: Session = Depends(get_db)):
+    try:
+        db_user = db.query(User).filter(User.phone == user_data.phone).first()
 
-    if not db_user:
-        raise HTTPException(status_code=401, detail="Invalid phone or password")
-    
-    if not verify_password(data.password, db_user.password):
-        raise HTTPException(status_code=401, detail="Invalid phone or password")
-    
-    access_token = create_access_token(db_user)
-    refresh_token = create_refresh_token(db_user)
+        if not db_user:
+            raise HTTPException(status_code=401, detail="Invalid phone or password")
+        
+        if not verify_password(user_data.password, db_user.password):
+            raise HTTPException(status_code=401, detail="Invalid phone or password")
+        
+        access_token = create_access_token(db_user)
+        refresh_token = create_refresh_token(db_user)
 
-    return response_handler(
-        status=True,
-        message="Login successful",
-        data={
-            "access_token": access_token,
-            "refresh_token": refresh_token
-        },
-        status_code=200
-    )
+        # ----- Device Tracking -----
+        user_agent = request.headers.get("User-Agent")
+        ip_address = request.client.host
+        
+        db_device = db.query(DeviceTracking).filter(
+            DeviceTracking.user_id == db_user.id,
+            DeviceTracking.device_id == device_data.device_id,
+        ).first()
+
+        if db_device:
+            db_device.user_agent = user_agent
+            db_device.ip_address = ip_address
+            db_device.refresh_token = hash_token(refresh_token)
+            db_device.last_login_at = datetime.now(timezone.utc)
+        else:
+            new_device = DeviceTracking(
+                user_id = db_user.id,
+                device_id = device_data.device_id,
+                user_agent = user_agent,
+                ip_address = ip_address, 
+                refresh_token = hash_token(refresh_token)
+            )
+            db.add(new_device)
+
+        db.commit()
+
+        return response_handler(
+            status=True,
+            message="Login successful",
+            data={
+                "access_token": access_token,
+                "refresh_token": refresh_token
+            },
+            status_code=200
+        )
+    
+    except HTTPException as http_error:
+        db.rollback()
+        raise http_error
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Login failed")
 
 
 @router.get("/me")
@@ -79,6 +142,7 @@ def get_me(payload = Depends(JWTBearer()), db: Session = Depends(get_db)):
         },
         status_code=200
     )
+
 
 @router.get("/users")
 def get_users(payload = Depends(JWTBearer()), db: Session = Depends(get_db)):
@@ -103,6 +167,7 @@ def get_users(payload = Depends(JWTBearer()), db: Session = Depends(get_db)):
         ],
         status_code=200
     )
+
 
 @router.patch("/change-role")
 def change_role(data: ChangeRole, payload = Depends(JWTBearer()), db: Session = Depends(get_db)):
@@ -138,3 +203,4 @@ def change_role(data: ChangeRole, payload = Depends(JWTBearer()), db: Session = 
         },
         status_code=200
     )
+

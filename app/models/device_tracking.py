@@ -9,9 +9,10 @@ class DeviceTracking(Base):
 
     id = Column(String, primary_key=True, index=True, default=lambda: uuid.uuid4().hex)
     user_id = Column(String, ForeignKey("users.id"), nullable=False)
-    device_name = Column(String, nullable=False)
+    device_id = Column(String(64), nullable=False, index=True, unique=True)
+    user_agent = Column(String(2048), nullable=False)
     ip_address = Column(String, nullable=False)
-    refresh_token_hash = Column(String, nullable=False, unique=True)
+    refresh_token = Column(String, nullable=False, unique=True)
     last_login_at = Column(DateTime(timezone=True), nullable=False, default=datetime.now(timezone.utc))
 
     user = relationship("User", back_populates="devices")
