@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from datetime import datetime, timezone
 from app.schemas.user import RegisterUser, LoginUser, ChangeRole
-from app.schemas.device_tracking import CreateDevice, UpdateDevice
+from app.schemas.device_tracking import DeviceData
 from app.db.session import get_db
 from app.models.user import User
 from app.models.device_tracking import DeviceTracking
@@ -14,7 +14,7 @@ from app.services.jwt_bearer import JWTBearer
 router = APIRouter(prefix="/user", tags=["Users"])
 
 @router.post("/register")
-def register_user(request: Request, user_data: RegisterUser, device_data: CreateDevice, db: Session = Depends(get_db)):
+def register_user(request: Request, user_data: RegisterUser, device_data: DeviceData, db: Session = Depends(get_db)):
     try:
         db_user = db.query(User).filter(User.phone == user_data.phone).first()
         if db_user:
@@ -66,7 +66,7 @@ def register_user(request: Request, user_data: RegisterUser, device_data: Create
 
 
 @router.post("/login")
-def login_user(request: Request, user_data: LoginUser, device_data: UpdateDevice, db: Session = Depends(get_db)):
+def login_user(request: Request, user_data: LoginUser, device_data: DeviceData, db: Session = Depends(get_db)):
     try:
         db_user = db.query(User).filter(User.phone == user_data.phone).first()
 
@@ -245,3 +245,26 @@ def delete_user(user_id: str, payload = Depends(JWTBearer()), db: Session = Depe
         data=None,
         status_code=200
     )
+
+
+@router.delete("/logout/{device_id}")
+def refresh_token(device_id: str, payload = Depends(JWTBearer()), db: Session = Depends(get_db)):
+    
+    db_device = db.query(DeviceTracking).filter(DeviceTracking.device_id == device_id).first()
+
+    if not db_device:
+        raise HTTPException(status_code=404, detail="Device not found")
+    
+    if payload["role"] != "admin" and payload["sub"] != db_device.user_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    db.delete(db_device)
+    db.commit()
+
+    return response_handler(
+        status=True,
+        message="Logged out successfully",
+        data=None,
+        status_code=200
+    )
+
