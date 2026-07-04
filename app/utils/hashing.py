@@ -13,5 +13,5 @@ def verify_password(password: str, hashed_password: str) -> bool:
 def hash_token(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
 
-def verify_token(token: str, hashed_token: str) -> bool:
+def verify_hashed_token(token: str, hashed_token: str) -> bool:
     return hash_token(token) == hashed_token

@@ -13,3 +13,6 @@ class LoginUser(BaseModel):
 class ChangeRole(BaseModel):
     user_id: str
     role: UserRole
+
+class RefreshToken(BaseModel):
+    refresh_token: str

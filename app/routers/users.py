@@ -1,13 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from datetime import datetime, timezone
-from app.schemas.user import RegisterUser, LoginUser, ChangeRole
+from app.schemas.user import RegisterUser, LoginUser, ChangeRole, RefreshToken
 from app.schemas.device_tracking import DeviceData
 from app.db.session import get_db
 from app.models.user import User
 from app.models.device_tracking import DeviceTracking
-from app.services.tokens import create_access_token, create_refresh_token
-from app.utils.hashing import hash_password, verify_password, hash_token
+from app.services.tokens import create_access_token, create_refresh_token, verify_token
+from app.utils.hashing import hash_password, verify_password, hash_token, verify_hashed_token
 from app.middleware.exception_handler import response_handler
 from app.services.jwt_bearer import get_payload
 
@@ -162,6 +162,40 @@ def login_user(request: Request, user_data: LoginUser, device_data: DeviceData, 
     except Exception:
         db.rollback()
         raise HTTPException(status_code=500, detail="Login failed")
+
+
+@router.post("/refresh")
+def refresh_token(data: RefreshToken, db: Session = Depends(get_db)):
+
+    payload = verify_token(data.refresh_token)
+
+    if payload is None or payload["type"] != "refresh":
+        raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
+
+    db_device = db.query(DeviceTracking).filter(
+        DeviceTracking.user_id == payload["sub"],
+        DeviceTracking.refresh_token == hash_token(data.refresh_token)
+    ).first()
+
+    if not db_device:
+        raise HTTPException(status_code=401, detail="Session not found. Please log in again")
+    
+    db_device.access_version += 1
+    db.commit()
+
+    new_access_token = create_access_token({
+        "sub": payload["sub"],
+        "role": payload["role"],
+        "access_version": db_device.access_version,
+        "device_id": db_device.device_id,
+    })
+
+    return response_handler(
+        status=True,
+        message="Access token refreshed",
+        data={"access_token": new_access_token},
+        status_code=200
+    )
 
 
 @router.get("/me")
