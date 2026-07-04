@@ -59,7 +59,7 @@ def get_products(db: Session = Depends(get_db), page: int = 1, limit: int = 20):
         db_products_total = db.query(Product).count()
 
         if not db_products or not db_products_total:
-            raise HTTPException(status_code=404, detail="Product not found")
+            raise HTTPException(status_code=404, detail="Products not found")
         
         return response_handler(
             status=True,
@@ -90,8 +90,6 @@ def get_products(db: Session = Depends(get_db), page: int = 1, limit: int = 20):
             },
             status_code=200
         )
-
-
     except HTTPException as http_error:
         db.rollback()
         raise http_error
@@ -99,3 +97,37 @@ def get_products(db: Session = Depends(get_db), page: int = 1, limit: int = 20):
         db.rollback()
         raise HTTPException(status_code=500, detail="Registration failed")
 
+@router.get('/get/{product_id}')
+def get_product(product_id: str, db: Session = Depends(get_db)):
+    try:
+        db_product = db.query(Product).filter(Product.id == product_id).first()
+
+        if not db_product:
+            raise HTTPException(status_code=404, detail="Product not found")
+            
+        return response_handler(
+            status=True,
+            message="Product found",
+            data={
+                "id": db_product.id,
+                "title": db_product.title,
+                "description": db_product.description,
+                "price": db_product.price,
+                "discount_percent": db_product.discount_percent,
+                "category_id": db_product.category_id,
+                "images": db_product.images,
+                "is_available": db_product.is_available,
+                "likes": db_product.likes,
+                "tags": db_product.tags,
+                "prepare_time": db_product.prepare_time,
+                "created_at": db_product.created_at,
+                "updated_at": db_product.updated_at
+            },
+            status_code=200
+        )
+    except HTTPException as http_error:
+        db.rollback()
+        raise http_error
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Registration failed")
