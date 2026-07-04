@@ -5,8 +5,10 @@ from app.config.settings import settings
 def create_access_token(data: dict):
     expire = datetime.now(timezone.utc) + timedelta(minutes = settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode = {
-        "sub": data.id,
-        "role": data.role.value,
+        "sub": data["sub"],
+        "role": data["role"],
+        "access_version": data["access_version"],
+        "device_id": data["device_id"],
         "type": "access",
         "exp": expire
     }
@@ -15,8 +17,8 @@ def create_access_token(data: dict):
 def create_refresh_token(data: dict):
     expire = datetime.now(timezone.utc) + timedelta(days = settings.REFRESH_TOKEN_EXPIRE_DAYS)
     to_encode = {
-        "sub": data.id,
-        "role": data.role.value,
+        "sub": data["sub"],
+        "role": data["role"],
         "type": "refresh",
         "exp": expire
     }

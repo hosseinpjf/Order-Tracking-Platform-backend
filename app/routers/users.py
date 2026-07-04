@@ -9,7 +9,7 @@ from app.models.device_tracking import DeviceTracking
 from app.services.tokens import create_access_token, create_refresh_token
 from app.utils.hashing import hash_password, verify_password, hash_token
 from app.middleware.exception_handler import response_handler
-from app.services.jwt_bearer import JWTBearer
+from app.services.jwt_bearer import get_payload
 
 router = APIRouter(prefix="/user", tags=["Users"])
 
@@ -29,19 +29,33 @@ def register_user(request: Request, user_data: RegisterUser, device_data: Device
         db.flush()
         db.refresh(new_user)
 
-        access_token = create_access_token(new_user)
-        refresh_token = create_refresh_token(new_user)
+        payload = {
+            "sub": new_user.id,
+            "role": new_user.role.value,
+            "access_version": 1,
+            "device_id": device_data.device_id
+        }
+        access_token = create_access_token(payload)
+        refresh_token = create_refresh_token(payload)
 
         # ----- Device Tracking -----
         user_agent = request.headers.get("User-Agent")
         ip_address = request.client.host
 
+        login_time = datetime.now(timezone.utc)
+
         new_device = DeviceTracking(
             user_id = new_user.id, 
+
             device_id = device_data.device_id,
             user_agent = user_agent,
             ip_address = ip_address,
-            refresh_token = hash_token(refresh_token)
+
+            refresh_token = hash_token(refresh_token),
+            access_version = 1,
+
+            first_login_at = login_time,
+            last_login_at = login_time
         )
         db.add(new_device)
 
@@ -75,9 +89,11 @@ def login_user(request: Request, user_data: LoginUser, device_data: DeviceData, 
         
         if not verify_password(user_data.password, db_user.password):
             raise HTTPException(status_code=401, detail="Invalid phone or password")
-        
-        access_token = create_access_token(db_user)
-        refresh_token = create_refresh_token(db_user)
+
+        refresh_token = create_refresh_token({
+            "sub": db_user.id, 
+            "role": db_user.role.value
+        })
 
         # ----- Device Tracking -----
         user_agent = request.headers.get("User-Agent")
@@ -88,22 +104,47 @@ def login_user(request: Request, user_data: LoginUser, device_data: DeviceData, 
             DeviceTracking.device_id == device_data.device_id,
         ).first()
 
+        access_version = None
+        login_time = datetime.now(timezone.utc)
+
         if db_device:
+            # Prev Device
             db_device.user_agent = user_agent
             db_device.ip_address = ip_address
+
+            db_device.access_version += 1
             db_device.refresh_token = hash_token(refresh_token)
-            db_device.last_login_at = datetime.now(timezone.utc)
+
+            db_device.last_login_at = login_time
+
+            access_version = db_device.access_version
         else:
+            # New Device
+            access_version = 1
+
             new_device = DeviceTracking(
                 user_id = db_user.id,
+
                 device_id = device_data.device_id,
                 user_agent = user_agent,
-                ip_address = ip_address, 
-                refresh_token = hash_token(refresh_token)
+                ip_address = ip_address,
+
+                refresh_token = hash_token(refresh_token),
+                access_version = 1,
+
+                first_login_at = login_time,
+                last_login_at = login_time
             )
             db.add(new_device)
 
         db.commit()
+
+        access_token = create_access_token({
+            "sub": db_user.id, 
+            "role": db_user.role.value, 
+            "access_version": access_version, 
+            "device_id": device_data.device_id
+        })
 
         return response_handler(
             status=True,
@@ -124,7 +165,7 @@ def login_user(request: Request, user_data: LoginUser, device_data: DeviceData, 
 
 
 @router.get("/me")
-def get_me(payload = Depends(JWTBearer()), db: Session = Depends(get_db)):
+def get_me(payload = Depends(get_payload), db: Session = Depends(get_db)):
     db_user = db.query(User).filter(User.id == payload["sub"]).first()
 
     if not db_user:
@@ -142,10 +183,10 @@ def get_me(payload = Depends(JWTBearer()), db: Session = Depends(get_db)):
             "devices": [
                 {
                     "id": device.id,
-                    "device_id": device.device_id,
                     "ip_address": device.ip_address,
                     "user_agent": device.user_agent,
-                    "last_login_at": device.last_login_at
+                    "first_login_at": device.first_login_at,
+                    "logout_at": device.logout_at
                 }
                 for device in db_user.devices
             ]
@@ -155,7 +196,7 @@ def get_me(payload = Depends(JWTBearer()), db: Session = Depends(get_db)):
 
 
 @router.get("/users")
-def get_users(payload = Depends(JWTBearer()), db: Session = Depends(get_db)):
+def get_users(payload = Depends(get_payload), db: Session = Depends(get_db)):
     
     if payload["role"] != "admin":
         raise HTTPException(status_code=403, detail="Access denied")
@@ -175,10 +216,10 @@ def get_users(payload = Depends(JWTBearer()), db: Session = Depends(get_db)):
                 "devices": [
                     {
                         "id": device.id,
-                        "device_id": device.device_id,
                         "ip_address": device.ip_address,
                         "user_agent": device.user_agent,
-                        "last_login_at": device.last_login_at
+                        "first_login_at": device.first_login_at,
+                        "logout_at": device.logout_at
                     }
                     for device in user.devices
                 ]
@@ -190,7 +231,7 @@ def get_users(payload = Depends(JWTBearer()), db: Session = Depends(get_db)):
 
 
 @router.patch("/change-role")
-def change_role(data: ChangeRole, payload = Depends(JWTBearer()), db: Session = Depends(get_db)):
+def change_role(data: ChangeRole, payload = Depends(get_payload), db: Session = Depends(get_db)):
     
     if payload["role"] != "admin":
         raise HTTPException(status_code=403, detail="Access denied")
@@ -226,13 +267,13 @@ def change_role(data: ChangeRole, payload = Depends(JWTBearer()), db: Session = 
 
 
 @router.delete("/delete/{user_id}")
-def delete_user(user_id: str, payload = Depends(JWTBearer()), db: Session = Depends(get_db)):
+def delete_user(user_id: str, payload = Depends(get_payload), db: Session = Depends(get_db)):
 
-    if payload["role"] != "admin":
-        raise HTTPException(status_code=403, detail="Access denied")
-    
     db_user = db.query(User).filter(User.id == user_id).first()
 
+    if payload["role"] != "admin" and payload["sub"] != db_user.id:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
     if not db_user:
         raise HTTPException(status_code=404, detail="User not found")
     
@@ -248,7 +289,7 @@ def delete_user(user_id: str, payload = Depends(JWTBearer()), db: Session = Depe
 
 
 @router.delete("/logout/{device_id}")
-def refresh_token(device_id: str, payload = Depends(JWTBearer()), db: Session = Depends(get_db)):
+def logout_user(device_id: str, payload = Depends(get_payload), db: Session = Depends(get_db)):
     
     db_device = db.query(DeviceTracking).filter(DeviceTracking.device_id == device_id).first()
 
@@ -258,7 +299,9 @@ def refresh_token(device_id: str, payload = Depends(JWTBearer()), db: Session = 
     if payload["role"] != "admin" and payload["sub"] != db_device.user_id:
         raise HTTPException(status_code=403, detail="Access denied")
 
-    db.delete(db_device)
+    db_device.refresh_token = None
+    db_device.access_version += 1
+    db_device.logout_at = datetime.now(timezone.utc)
     db.commit()
 
     return response_handler(
