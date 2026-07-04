@@ -48,11 +48,11 @@ class Product(Base):
 
     category_id = Column(String, ForeignKey("categories.id"), nullable=False)
 
-    images = Column(JSON)
+    images = Column(JSON, default=list)
     is_available = Column(Boolean, nullable=False, default=True)
 
     likes = Column(Integer, nullable=False, default=0)
-    tags = Column(Enum(ProductTags))
+    tags = Column(JSON, default=list)
 
     prepare_time = Column(Integer, nullable=False)
 
