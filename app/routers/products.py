@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 import math
+import json
 from app.db.session import get_db
 from app.services.jwt_bearer import get_payload
 from app.schemas.product import CreateProduct, UpdateProduct, OutProduct
@@ -193,3 +194,32 @@ def delete_product(product_id: str, payload = Depends(get_payload), db: Session 
         db.rollback()
         raise HTTPException(status_code=500, detail="Product delete failed")
 
+
+@router.patch('/like/{product_id}')
+def update_likes_product(product_id: str, payload = Depends(get_payload), db: Session = Depends(get_db)):
+    try:
+        db_product = db.query(Product).filter(Product.id == product_id).first()
+
+        if not db_product:
+            raise HTTPException(status_code=404, detail="Product not found")
+        
+        if payload["sub"] in db_product.likes:
+            db_product.likes.remove(payload["sub"])
+        else:
+            db_product.likes.append(payload["sub"])
+        
+        db.commit()
+        db.refresh(db_product)
+
+        return response_handler(
+            status=True,
+            message="Like successfully recorded",
+            data=OutProduct.model_validate(db_product).model_dump(),
+            status_code=200
+        )
+    except HTTPException as http_error:
+        db.rollback()
+        raise http_error
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Product like failed")

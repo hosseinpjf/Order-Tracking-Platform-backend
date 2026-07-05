@@ -1,6 +1,7 @@
 from sqlalchemy import Column, String, DateTime, Enum, Integer, Boolean, ForeignKey, JSON
 from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
+from sqlalchemy.ext.mutable import MutableList
 import uuid
 import enum
 from app.db.base import Base
@@ -60,7 +61,7 @@ class Product(Base):
     images = Column(JSON, default=list)
     is_available = Column(Boolean, nullable=False, default=True)
 
-    likes = Column(Integer, nullable=False, default=0)
+    likes = Column(MutableList.as_mutable(JSON), default=list)
     tags = Column(JSON, default=list)
 
     prepare_time = Column(Integer, nullable=False)

@@ -39,7 +39,7 @@ class OutProduct(BaseModel):
     discount_percent: int
     prepare_time: int
     category_id: str
-    likes: int
+    likes: list
     is_available: bool
     tags: list[ProductTags]
     images: list[ImageSchema]
