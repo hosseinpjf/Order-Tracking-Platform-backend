@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 import math
 from app.db.session import get_db
 from app.services.jwt_bearer import get_payload
-from app.schemas.product import CreateProduct
+from app.schemas.product import CreateProduct, UpdateProduct
 from app.models.product import Product
 from app.middleware.exception_handler import response_handler
 
@@ -12,6 +12,9 @@ router = APIRouter(prefix="/product", tags=["Product"])
 @router.post("/create")
 def create_product(data: CreateProduct, payload = Depends(get_payload), db: Session = Depends(get_db)):
     try:
+        if payload["role"] != "admin":
+            raise HTTPException(status_code=403, detail="Access denied")
+
         new_product = Product(
             title = data.title,
             description = data.description,
@@ -31,26 +34,13 @@ def create_product(data: CreateProduct, payload = Depends(get_payload), db: Sess
         return response_handler(
             status=True,
             message="Product created successfully",
-            data={
-                "id": new_product.id,
-                "title": new_product.title,
-                "description": new_product.description,
-                "price": new_product.price,
-                "discount_percent": new_product.discount_percent,
-                "category_id": new_product.category_id,
-                "images": new_product.images,
-                "is_available": new_product.is_available,
-                "likes": new_product.likes,
-                "tags": new_product.tags,
-                "prepare_time": new_product.prepare_time,
-                "created_at": new_product.created_at,
-                "updated_at": new_product.updated_at
-            },
+            data={new_product},
             status_code=201
         )
     except Exception:
         db.rollback()
         raise HTTPException(status_code=500, detail="Registration failed")
+
 
 @router.get("/get")
 def get_products(db: Session = Depends(get_db), page: int = 1, limit: int = 20):
@@ -66,22 +56,8 @@ def get_products(db: Session = Depends(get_db), page: int = 1, limit: int = 20):
             message="All products fetched",
             data={
                 "products": [
-                    {
-                        "id": product.id,
-                        "title": product.title,
-                        "description": product.description,
-                        "price": product.price,
-                        "discount_percent": product.discount_percent,
-                        "category_id": product.category_id,
-                        "images": product.images,
-                        "is_available": product.is_available,
-                        "likes": product.likes,
-                        "tags": product.tags,
-                        "prepare_time": product.prepare_time,
-                        "created_at": product.created_at,
-                        "updated_at": product.updated_at
-                    }
-                for product in db_products
+                    {product}
+                    for product in db_products
                 ],
                 "page": page,
                 "limit": limit,
@@ -97,7 +73,8 @@ def get_products(db: Session = Depends(get_db), page: int = 1, limit: int = 20):
         db.rollback()
         raise HTTPException(status_code=500, detail="Registration failed")
 
-@router.get('/get/{product_id}')
+
+@router.get("/get/{product_id}")
 def get_product(product_id: str, db: Session = Depends(get_db)):
     try:
         db_product = db.query(Product).filter(Product.id == product_id).first()
@@ -108,21 +85,7 @@ def get_product(product_id: str, db: Session = Depends(get_db)):
         return response_handler(
             status=True,
             message="Product found",
-            data={
-                "id": db_product.id,
-                "title": db_product.title,
-                "description": db_product.description,
-                "price": db_product.price,
-                "discount_percent": db_product.discount_percent,
-                "category_id": db_product.category_id,
-                "images": db_product.images,
-                "is_available": db_product.is_available,
-                "likes": db_product.likes,
-                "tags": db_product.tags,
-                "prepare_time": db_product.prepare_time,
-                "created_at": db_product.created_at,
-                "updated_at": db_product.updated_at
-            },
+            data={db_product},
             status_code=200
         )
     except HTTPException as http_error:
@@ -131,3 +94,42 @@ def get_product(product_id: str, db: Session = Depends(get_db)):
     except Exception:
         db.rollback()
         raise HTTPException(status_code=500, detail="Registration failed")
+
+
+@router.patch("/update/{product_id}")
+def update_product(product_id: str, data: UpdateProduct, payload = Depends(get_payload), db: Session = Depends(get_db)):
+    try:
+        if payload["role"] != "admin":
+            raise HTTPException(status_code=403, detail="Access denied")
+
+        db_product = db.query(Product).filter(Product.id == product_id).first()
+
+        if not db_product:
+            raise HTTPException(status_code=404, detail="Product not found")
+
+        update_data = data.model_dump(
+            exclude_unset=True,
+            exclude_none=True
+        )
+
+        for key, value in update_data.items():
+            if key == "tags":
+                value = [tag.value for tag in value]
+            setattr(db_product, key, value)
+
+        db.commit()
+        db.refresh(db_product)
+
+        return response_handler(
+            status=True,
+            message="Data update completed successfully",
+            data={db_product},
+            status_code=200
+        )
+    except HTTPException as http_error:
+        db.rollback()
+        raise http_error
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Registration failed")
+

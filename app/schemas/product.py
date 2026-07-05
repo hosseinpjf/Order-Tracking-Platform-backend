@@ -16,3 +16,15 @@ class CreateProduct(BaseModel):
     is_available: bool = True
     tags: List[ProductTags] = Field(default_factory=list)
     prepare_time: int = Field(..., gt=0)
+
+
+class UpdateProduct(BaseModel):
+    title: str | None = Field(None, min_length=1)
+    description: str | None = Field(None, min_length=1)
+    price: int | None = Field(None, gt=0)
+    discount_percent: int | None = Field(None, ge=0, le=100)
+    category_id: str | None = None
+    images: List[ImageSchema] | None = None
+    is_available: bool | None = None
+    tags: List[ProductTags] | None = None
+    prepare_time: int | None = Field(None, gt=0)
