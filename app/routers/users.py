@@ -1,11 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, Query
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 from datetime import datetime, timezone
 import math
 from app.schemas.user import RegisterUser, LoginUser, ChangeRole, RefreshToken, OutUser
 from app.schemas.device_tracking import DeviceData
 from app.db.session import get_db
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.models.device_tracking import DeviceTracking
 from app.services.tokens import create_access_token, create_refresh_token, verify_token
 from app.utils.hashing import hash_password, verify_password, hash_token
@@ -220,24 +221,34 @@ def get_me(payload = Depends(get_payload), db: Session = Depends(get_db)):
             status_code=200
         )
     except HTTPException as http_error:
-        db.rollback()
         raise http_error
     except Exception:
-        db.rollback()
         raise HTTPException(status_code=500, detail="Me get failed")
 
 
 @router.get("/users")
-def get_users(payload = Depends(get_payload), db: Session = Depends(get_db), page: int = Query(1, ge=1), limit: int = Query(10, ge=1, le=100)):
+def get_users(
+        payload = Depends(get_payload), 
+        db: Session = Depends(get_db), 
+        page: int = Query(1, ge=1), 
+        limit: int = Query(10, ge=1, le=100),
+        role: UserRole | None = None,
+        q: str | None = Query(None, min_length=1, max_length=100),
+    ):
     try:
         if payload["role"] != "admin":
             raise HTTPException(status_code=403, detail="Access denied")
+        
+        db_users = []
+        query = db.query(User)
 
-        db_users = db.query(User).filter(User.id != payload["sub"]).offset((page - 1) * limit).limit(limit).all()
-        db_users_total = db.query(User).filter(User.id != payload["sub"]).count()
+        if role:
+            query = query.filter(User.role == role)
+        if q:
+            query = query = query.filter(or_(User.name.ilike(f"%{q}%"), User.phone.ilike(f"%{q}%")))
 
-        if not db_users or not db_users_total:
-            raise HTTPException(status_code=404, detail="Users not found")
+        db_users = query.offset((page - 1) * limit).limit(limit).all()
+        db_users_total = query.count()
 
         return response_handler(
             status=True,
@@ -255,10 +266,8 @@ def get_users(payload = Depends(get_payload), db: Session = Depends(get_db), pag
             status_code=200
         )
     except HTTPException as http_error:
-        db.rollback()
         raise http_error
     except Exception:
-        db.rollback()
         raise HTTPException(status_code=500, detail="Users get failed")
 
 
