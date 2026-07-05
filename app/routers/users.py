@@ -1,8 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Query
 from sqlalchemy.orm import Session
 from datetime import datetime, timezone
 import math
-from app.schemas.user import RegisterUser, LoginUser, ChangeRole, RefreshToken
+from app.schemas.user import RegisterUser, LoginUser, ChangeRole, RefreshToken, OutUser
 from app.schemas.device_tracking import DeviceData
 from app.db.session import get_db
 from app.models.user import User
@@ -202,7 +202,7 @@ def refresh_token(data: RefreshToken, db: Session = Depends(get_db)):
         raise http_error
     except Exception:
         db.rollback()
-        raise HTTPException(status_code=500, detail="Registration failed")
+        raise HTTPException(status_code=500, detail="Refresh failed")
 
 
 @router.get("/me")
@@ -216,23 +216,7 @@ def get_me(payload = Depends(get_payload), db: Session = Depends(get_db)):
         return response_handler(
             status=True,
             message="User found",
-            data={
-                "id": db_user.id,
-                "name": db_user.name,
-                "phone": db_user.phone,
-                "role": db_user.role,
-                "created_at": db_user.created_at,
-                "devices": [
-                    {
-                        "id": device.id,
-                        "ip_address": device.ip_address,
-                        "user_agent": device.user_agent,
-                        "first_login_at": device.first_login_at,
-                        "last_logout_at": device.last_logout_at
-                    }
-                    for device in db_user.devices
-                ]
-            },
+            data=OutUser.model_validate(db_user).model_dump(),
             status_code=200
         )
     except HTTPException as http_error:
@@ -240,11 +224,11 @@ def get_me(payload = Depends(get_payload), db: Session = Depends(get_db)):
         raise http_error
     except Exception:
         db.rollback()
-        raise HTTPException(status_code=500, detail="Registration failed")
+        raise HTTPException(status_code=500, detail="Me get failed")
 
 
 @router.get("/users")
-def get_users(payload = Depends(get_payload), db: Session = Depends(get_db), page: int = 1, limit: int = 10):
+def get_users(payload = Depends(get_payload), db: Session = Depends(get_db), page: int = Query(1, ge=1), limit: int = Query(10, ge=1, le=100)):
     try:
         if payload["role"] != "admin":
             raise HTTPException(status_code=403, detail="Access denied")
@@ -260,23 +244,7 @@ def get_users(payload = Depends(get_payload), db: Session = Depends(get_db), pag
             message="All users fetched",
             data={
                 "users": [
-                    {
-                        "id": user.id,
-                        "name": user.name,
-                        "phone": user.phone,
-                        "role": user.role,
-                        "created_at": user.created_at,
-                        "devices": [
-                            {
-                                "id": device.id,
-                                "ip_address": device.ip_address,
-                                "user_agent": device.user_agent,
-                                "first_login_at": device.first_login_at,
-                                "last_logout_at": device.last_logout_at
-                            }
-                            for device in user.devices
-                        ]
-                    }
+                    OutUser.model_validate(user).model_dump()
                     for user in db_users
                 ],
                 "page": page,
@@ -291,7 +259,7 @@ def get_users(payload = Depends(get_payload), db: Session = Depends(get_db), pag
         raise http_error
     except Exception:
         db.rollback()
-        raise HTTPException(status_code=500, detail="Registration failed")
+        raise HTTPException(status_code=500, detail="Users get failed")
 
 
 @router.patch("/change-role")
@@ -327,13 +295,7 @@ def change_role(data: ChangeRole, payload = Depends(get_payload), db: Session = 
         return response_handler(
             status=True,
             message=f"User role updated to {data.role.value}",
-            data={
-                "id": db_user.id,
-                "name": db_user.name,
-                "phone": db_user.phone,
-                "role": db_user.role,
-                "created_at": db_user.created_at
-            },
+            data=OutUser.model_validate(db_user).model_dump(),
             status_code=200
         )
     except HTTPException as http_error:
@@ -341,7 +303,7 @@ def change_role(data: ChangeRole, payload = Depends(get_payload), db: Session = 
         raise http_error
     except Exception:
         db.rollback()
-        raise HTTPException(status_code=500, detail="Registration failed")
+        raise HTTPException(status_code=500, detail="Change Role failed")
 
 
 @router.delete("/delete/{user_id}")
@@ -369,7 +331,7 @@ def delete_user(user_id: str, payload = Depends(get_payload), db: Session = Depe
         raise http_error
     except Exception:
         db.rollback()
-        raise HTTPException(status_code=500, detail="Registration failed")
+        raise HTTPException(status_code=500, detail="User Delete failed")
 
 
 @router.delete("/logout/{device_id}")
@@ -402,5 +364,5 @@ def logout_user(device_id: str, payload = Depends(get_payload), db: Session = De
         raise http_error
     except Exception:
         db.rollback()
-        raise HTTPException(status_code=500, detail="Registration failed")
+        raise HTTPException(status_code=500, detail="Logout failed")
 

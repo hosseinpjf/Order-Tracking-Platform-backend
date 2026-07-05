@@ -1,4 +1,5 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
+from datetime import datetime
 from app.models.user import UserRole
 
 class RegisterUser(BaseModel):
@@ -16,3 +17,21 @@ class ChangeRole(BaseModel):
 
 class RefreshToken(BaseModel):
     refresh_token: str = Field(..., pattern=r"^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$") 
+
+
+class OutDevice(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    ip_address: str
+    user_agent: str
+    first_login_at: datetime
+    last_logout_at: datetime | None
+
+class OutUser(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    name: str
+    phone: str
+    role: UserRole
+    created_at: datetime
+    devices: list[OutDevice]
