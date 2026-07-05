@@ -1,10 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 import math
 from app.db.session import get_db
 from app.services.jwt_bearer import get_payload
 from app.schemas.product import CreateProduct, UpdateProduct, OutProduct
-from app.models.product import Product
+from app.models.product import Product, ProductTags, ProductSort
 from app.middleware.exception_handler import response_handler
 
 router = APIRouter(prefix="/product", tags=["Product"])
@@ -44,13 +45,48 @@ def create_product(data: CreateProduct, payload = Depends(get_payload), db: Sess
 
 
 @router.get("/")
-def get_products(db: Session = Depends(get_db), page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100)):
+def get_products(
+        db: Session = Depends(get_db), 
+        page: int = Query(1, ge=1), 
+        limit: int = Query(20, ge=1, le=100),
+        q: str | None = Query(None, min_length=1, max_length=100),
+        category_id: str | None = Query(None, min_length=32, max_length=32),
+        tag: ProductTags | None = None,
+        discount: bool | None = None,
+        available: bool | None = None,
+        sort: ProductSort | None = None,
+    ):
     try:
-        db_products = db.query(Product).offset((page - 1) * limit).limit(limit).all()
-        db_products_total = db.query(Product).count()
+        db_products = []
+        query = db.query(Product)
 
-        if not db_products or not db_products_total:
-            raise HTTPException(status_code=404, detail="Products not found")
+        if q:
+            query = query.filter(Product.title.ilike(f"%{q}%"))
+        if category_id:
+            query = query.filter(Product.category_id == category_id)
+        if tag:
+            query = query.filter(func.json_extract(Product.tags, '$').like(f'%"{tag.value}"%'))
+            # query = query.filter(Product.tags.contains([tag.value]))
+        if discount is not None:
+            query = query.filter(Product.discount_percent > 0 if discount else Product.discount_percent == 0)
+        if available is not None:
+            query = query.filter(Product.is_available == available)
+
+        if sort == ProductSort.newest:
+            query = query.order_by(Product.created_at.desc())
+        elif sort == ProductSort.popular:
+            query = query.order_by(Product.likes.desc())
+        elif sort == ProductSort.price_desc:
+            query = query.order_by(Product.price.desc())
+        elif sort == ProductSort.price_asc:
+            query = query.order_by(Product.price.asc())
+        elif sort == ProductSort.discount_desc:
+            query = query.order_by(Product.discount_percent.desc())
+        elif sort == ProductSort.prepare_time_asc:
+            query = query.order_by(Product.prepare_time.asc())
+
+        db_products = query.offset((page - 1) * limit).limit(limit).all()
+        db_products_total = query.count()
         
         return response_handler(
             status=True,

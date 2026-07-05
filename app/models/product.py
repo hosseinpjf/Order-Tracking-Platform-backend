@@ -35,6 +35,14 @@ class ProductTags(enum.Enum):
     #  محصول لوکس یا باکیفیت بالا
     premium = "premium" 
 
+class ProductSort(enum.Enum):
+    newest = "newest"
+    popular = "popular"
+    price_desc = "price_desc"
+    price_asc = "price_asc"
+    discount_desc = "discount_desc"
+    prepare_time_asc = "prepare_time_asc"
+
 class Product(Base):
     __tablename__ = "products"
 
