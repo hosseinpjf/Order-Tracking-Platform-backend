@@ -1,4 +1,5 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
+from datetime import datetime
 from typing import List
 from app.models.product import ProductTags
 
@@ -28,3 +29,19 @@ class UpdateProduct(BaseModel):
     is_available: bool | None = None
     tags: List[ProductTags] | None = None
     prepare_time: int | None = Field(None, gt=0)
+
+class OutProduct(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    title: str
+    description: str
+    price: int
+    discount_percent: int
+    prepare_time: int
+    category_id: str
+    likes: int
+    is_available: bool
+    tags: list[ProductTags]
+    images: list[ImageSchema]
+    created_at: datetime
+    updated_at: datetime

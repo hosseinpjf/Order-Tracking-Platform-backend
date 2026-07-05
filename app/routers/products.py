@@ -1,31 +1,29 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 import math
 from app.db.session import get_db
 from app.services.jwt_bearer import get_payload
-from app.schemas.product import CreateProduct, UpdateProduct
+from app.schemas.product import CreateProduct, UpdateProduct, OutProduct
 from app.models.product import Product
 from app.middleware.exception_handler import response_handler
 
 router = APIRouter(prefix="/product", tags=["Product"])
 
-@router.post("/create")
+@router.post("/")
 def create_product(data: CreateProduct, payload = Depends(get_payload), db: Session = Depends(get_db)):
     try:
         if payload["role"] != "admin":
             raise HTTPException(status_code=403, detail="Access denied")
 
-        new_product = Product(
-            title = data.title,
-            description = data.description,
-            price = data.price,
-            discount_percent = data.discount_percent,
-            category_id = data.category_id,
-            images = [img.dict() for img in data.images],
-            is_available = data.is_available,
-            tags = [tag.value for tag in data.tags],
-            prepare_time = data.prepare_time
+        new_product = Product()
+
+        create_data = data.model_dump(
+            exclude_none=True
         )
+        for key, value in create_data.items():
+            if key == "tags":
+                value = [tag.value for tag in value]
+            setattr(new_product, key, value)
 
         db.add(new_product)
         db.commit()
@@ -34,16 +32,19 @@ def create_product(data: CreateProduct, payload = Depends(get_payload), db: Sess
         return response_handler(
             status=True,
             message="Product created successfully",
-            data={new_product},
+            data=OutProduct.model_validate(new_product).model_dump(),
             status_code=201
         )
+    except HTTPException as http_error:
+        db.rollback()
+        raise http_error
     except Exception:
         db.rollback()
-        raise HTTPException(status_code=500, detail="Registration failed")
+        raise HTTPException(status_code=500, detail="Product create failed")
 
 
-@router.get("/get")
-def get_products(db: Session = Depends(get_db), page: int = 1, limit: int = 20):
+@router.get("/")
+def get_products(db: Session = Depends(get_db), page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100)):
     try:
         db_products = db.query(Product).offset((page - 1) * limit).limit(limit).all()
         db_products_total = db.query(Product).count()
@@ -56,7 +57,7 @@ def get_products(db: Session = Depends(get_db), page: int = 1, limit: int = 20):
             message="All products fetched",
             data={
                 "products": [
-                    {product}
+                    OutProduct.model_validate(product).model_dump()
                     for product in db_products
                 ],
                 "page": page,
@@ -67,14 +68,12 @@ def get_products(db: Session = Depends(get_db), page: int = 1, limit: int = 20):
             status_code=200
         )
     except HTTPException as http_error:
-        db.rollback()
         raise http_error
     except Exception:
-        db.rollback()
-        raise HTTPException(status_code=500, detail="Registration failed")
+        raise HTTPException(status_code=500, detail="Products get failed")
 
 
-@router.get("/get/{product_id}")
+@router.get("/{product_id}")
 def get_product(product_id: str, db: Session = Depends(get_db)):
     try:
         db_product = db.query(Product).filter(Product.id == product_id).first()
@@ -85,18 +84,16 @@ def get_product(product_id: str, db: Session = Depends(get_db)):
         return response_handler(
             status=True,
             message="Product found",
-            data={db_product},
+            data=OutProduct.model_validate(db_product).model_dump(),
             status_code=200
         )
     except HTTPException as http_error:
-        db.rollback()
         raise http_error
     except Exception:
-        db.rollback()
-        raise HTTPException(status_code=500, detail="Registration failed")
+        raise HTTPException(status_code=500, detail="Product get failed")
 
 
-@router.patch("/update/{product_id}")
+@router.patch("/{product_id}")
 def update_product(product_id: str, data: UpdateProduct, payload = Depends(get_payload), db: Session = Depends(get_db)):
     try:
         if payload["role"] != "admin":
@@ -111,7 +108,6 @@ def update_product(product_id: str, data: UpdateProduct, payload = Depends(get_p
             exclude_unset=True,
             exclude_none=True
         )
-
         for key, value in update_data.items():
             if key == "tags":
                 value = [tag.value for tag in value]
@@ -123,7 +119,7 @@ def update_product(product_id: str, data: UpdateProduct, payload = Depends(get_p
         return response_handler(
             status=True,
             message="Data update completed successfully",
-            data={db_product},
+            data=OutProduct.model_validate(db_product).model_dump(),
             status_code=200
         )
     except HTTPException as http_error:
@@ -131,15 +127,16 @@ def update_product(product_id: str, data: UpdateProduct, payload = Depends(get_p
         raise http_error
     except Exception:
         db.rollback()
-        raise HTTPException(status_code=500, detail="Registration failed")
+        raise HTTPException(status_code=500, detail="Product update failed")
 
-@router.delete("/delete/{product_id}")
-def delete_product(prdocut_id: str, payload = Depends(get_payload), db: Session = Depends(get_db)):
+
+@router.delete("/{product_id}")
+def delete_product(product_id: str, payload = Depends(get_payload), db: Session = Depends(get_db)):
     try:
         if payload["role"] != "admin":
             raise HTTPException(status_code=403, detail="Access denied")
 
-        db_product = db.query(Product).filter(Product.id == prdocut_id).first()
+        db_product = db.query(Product).filter(Product.id == product_id).first()
 
         if not db_product:
             raise HTTPException(status_code=404, detail="Product not found")
@@ -158,4 +155,5 @@ def delete_product(prdocut_id: str, payload = Depends(get_payload), db: Session 
         raise http_error
     except Exception:
         db.rollback()
-        raise HTTPException(status_code=500, detail="Registration failed")
+        raise HTTPException(status_code=500, detail="Product delete failed")
+
