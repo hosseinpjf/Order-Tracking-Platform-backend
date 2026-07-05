@@ -133,3 +133,29 @@ def update_product(product_id: str, data: UpdateProduct, payload = Depends(get_p
         db.rollback()
         raise HTTPException(status_code=500, detail="Registration failed")
 
+@router.delete("/delete/{product_id}")
+def delete_product(prdocut_id: str, payload = Depends(get_payload), db: Session = Depends(get_db)):
+    try:
+        if payload["role"] != "admin":
+            raise HTTPException(status_code=403, detail="Access denied")
+
+        db_product = db.query(Product).filter(Product.id == prdocut_id).first()
+
+        if not db_product:
+            raise HTTPException(status_code=404, detail="Product not found")
+        
+        db.delete(db_product)
+        db.commit()
+
+        return response_handler(
+            status=True,
+            message="Product deleted successfully",
+            data=None,
+            status_code=200
+        )
+    except HTTPException as http_error:
+        db.rollback()
+        raise http_error
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Registration failed")
