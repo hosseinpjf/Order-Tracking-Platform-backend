@@ -39,3 +39,26 @@ def create_category(data: CreateCategory, payload = Depends(get_payload), db: Se
     except Exception:
         db.rollback()
         raise HTTPException(status_code=500, detail="Category create failed")
+
+
+@router.get("/")
+def get_categories(db: Session = Depends(get_db)):
+    try:
+        db_categories = db.query(Category).order_by(Category.created_at.desc()).all()
+        
+        return response_handler(
+            status=True,
+            message="All category fetched",
+            data={
+                "categories": [
+                    OutCategory.model_validate(category).model_dump()
+                    for category in db_categories
+                ]
+            },
+            status_code=200
+        )
+    except HTTPException as http_error:
+        raise http_error
+    except Exception:
+        raise HTTPException(status_code=500, detail="Category get failed")
+
