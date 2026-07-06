@@ -7,9 +7,13 @@ from app.db.base import Base
 
 class OrderStatus(enum.Enum):
     pending = "pending"        # سفارش ثبت شده اما هزینه اش پرداخت نشده
-    confirmed = "confirmed"    # سفارش تأیید شده و هزینه پرداخت شده
+    # تایید درگاه پرداختی
+    confirmed = "confirmed"    # هزینه پرداخت شده و منتظر تایید
+    # تایید ادمین
     preparing = "preparing"    # در حال آماده‌سازی
+    # یا سیستم یا ادمین به سیستم اچازه خودکار نمیده تا خودش تایید کنه
     delivering = "delivering"  # در حال ارسال
+    # اگر حضوری بود که این وضعیت وجود نداره در غیر این صورت پیک تایید میکنه که سفارش رسونده شده
     completed = "completed"    # نهایی شده
     canceled = "canceled"      # لغو شده
 
@@ -44,4 +48,4 @@ class Order(Base):
     
 
     items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
-    # status_history = relationship("OrderStatusHistory", back_populates="order", cascade="all, delete-orphan")
+    status_history = relationship("OrderStatusHistory", back_populates="order", cascade="all, delete-orphan")
