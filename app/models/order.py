@@ -37,5 +37,5 @@ class Order(Base):
     updated_at = Column(DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
     
 
-    # items = relationship("OrderItems", back_populates="order", cascade="all, delete-orphan")
+    items = relationship("OrderItems", back_populates="order", cascade="all, delete-orphan")
     # status_history = relationship("OrderStatusHistory", back_populates="order", cascade="all, delete-orphan")
