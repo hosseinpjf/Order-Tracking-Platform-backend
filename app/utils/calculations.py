@@ -28,7 +28,7 @@ def calculate_order_totals(data, product_ids, db_products):
     if len(db_products) != len(set(product_ids)):
         raise HTTPException(status_code=404, detail="One or more products not found")
 
-    products_map = {product.id: product for product in db_products}
+    products_map = {p.id: p for p in db_products}
     for item in data.items:
         db_product = products_map[item.product_id]
 
