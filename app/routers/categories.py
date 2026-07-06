@@ -91,5 +91,32 @@ def update_category(category_id: str, data: CreateCategory, payload = Depends(ge
     except Exception:
         db.rollback()
         raise HTTPException(status_code=500, detail="Category update failed")
-    
+
+
+@router.delete("/{category_id}")
+def delete_category(category_id: str, payload = Depends(get_payload), db: Session = Depends(get_db)):
+    try:
+        if payload["role"] != "admin":
+            raise HTTPException(status_code=403, detail="Access denied")
+
+        db_category = db.query(Category).filter(Category.id == category_id).first()
+        
+        if not db_category:
+            raise HTTPException(status_code=404, detail="Category not found")
+
+        db.delete(db_category)
+        db.commit()
+
+        return response_handler(
+            status=True,
+            message="Category deleted successfully",
+            data=None,
+            status_code=200
+        )
+    except HTTPException as http_error:
+        db.rollback()
+        raise http_error
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Category delete failed")
 
