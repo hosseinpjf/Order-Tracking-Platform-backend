@@ -62,3 +62,34 @@ def get_categories(db: Session = Depends(get_db)):
     except Exception:
         raise HTTPException(status_code=500, detail="Category get failed")
 
+
+@router.put("/{category_id}")
+def update_category(category_id: str, data: CreateCategory, payload = Depends(get_payload), db: Session = Depends(get_db)):
+    try:
+        if payload["role"] != "admin":
+            raise HTTPException(status_code=403, detail="Access denied")
+
+        db_category = db.query(Category).filter(Category.id == category_id).first()
+
+        if not db_category:
+            raise HTTPException(status_code=404, detail="Category not found")
+
+        db_category.title = data.title
+
+        db.commit()
+        db.refresh(db_category)
+
+        return response_handler(
+            status=True,
+            message="Category updated successfully",
+            data=OutCategory.model_validate(db_category).model_dump(),
+            status_code=200
+        )
+    except HTTPException as http_error:
+        db.rollback()
+        raise http_error
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Category update failed")
+    
+
