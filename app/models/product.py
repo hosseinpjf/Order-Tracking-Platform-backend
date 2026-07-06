@@ -55,8 +55,8 @@ class Product(Base):
     price = Column(Integer, nullable=False)
     discount_percent = Column(Integer, nullable=False, default=0)
 
-    # category_id = Column(String, ForeignKey("categories.id"), nullable=False)
-    category_id = Column(String, nullable=False)
+    category_id = Column(String, ForeignKey("categories.id"), nullable=False)
+    # category_id = Column(String, nullable=False)
 
     images = Column(JSON, default=list)
     is_available = Column(Boolean, nullable=False, default=True)
@@ -70,6 +70,5 @@ class Product(Base):
     updated_at = Column(DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
     
 
-
-    # category = relationship("Category", back_populates="products")
+    category = relationship("Category", back_populates="products")
     # order_items = relationship("OrderItem", back_populates="product")
