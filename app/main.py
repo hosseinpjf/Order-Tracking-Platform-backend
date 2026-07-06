@@ -10,6 +10,7 @@ from .routers.users import router as router_users
 from .routers.devices_tracking import router as router_devices_tracking
 from .routers.products import router as router_products
 from .routers.uploads import router as router_uploads
+from .routers.categories import router as router_categories
 
 
 app = FastAPI()
@@ -22,6 +23,7 @@ app.include_router(router_users)
 app.include_router(router_devices_tracking)
 app.include_router(router_products)
 app.include_router(router_uploads)
+app.include_router(router_categories)
 
 app.add_exception_handler(HTTPException, http_exception_handler)
 app.add_exception_handler(Exception, general_exception_handler)
