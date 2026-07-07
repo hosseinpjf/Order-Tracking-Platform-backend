@@ -21,7 +21,7 @@ class OrderStatusHistory(Base):
 
     status = Column(Enum(OrderStatus), nullable=False, default=OrderStatus.pending)
     duration_seconds = Column(Integer, default=0)
-    changed_by = Column(Enum(StatusChangedBy), nullable=False)
+    changed_by = Column(Enum(StatusChangedBy))
 
     start_at = Column(DateTime, default=datetime.now(timezone.utc))
     end_at = Column(DateTime)

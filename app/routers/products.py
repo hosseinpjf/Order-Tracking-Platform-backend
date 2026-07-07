@@ -6,6 +6,7 @@ from app.db.session import get_db
 from app.services.jwt_bearer import get_payload
 from app.schemas.product import CreateProduct, UpdateProduct, OutProduct
 from app.models.product import Product, ProductTags, ProductSort
+from app.models.category import Category
 from app.middleware.exception_handler import response_handler
 
 router = APIRouter(prefix="/product", tags=["Product"])
@@ -15,6 +16,10 @@ def create_product(data: CreateProduct, payload = Depends(get_payload), db: Sess
     try:
         if payload["role"] != "admin":
             raise HTTPException(status_code=403, detail="Access denied")
+        
+        db_category = db.query(Category).filter(Category.id == data.category_id).first()
+        if not db_category:
+            raise HTTPException(status_code=404, detail="Category not found")
 
         new_product = Product()
 
