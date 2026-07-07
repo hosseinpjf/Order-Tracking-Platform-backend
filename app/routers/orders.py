@@ -5,7 +5,7 @@ import math
 from datetime import datetime, timezone
 from app.db.session import get_db
 from app.services.jwt_bearer import get_payload
-from app.schemas.order import CreateOrder, OutOrder, UpdateStatus
+from app.schemas.order import CreateOrder, OutOrder, UpdateStatus, OutFullOrder
 from app.models.order import Order, OrderStatus, OrderType, OrderSort
 from app.models.order_item import OrderItem
 from app.models.order_status_history import OrderStatusHistory
@@ -148,6 +148,28 @@ def get_orders(
             status_code=200
         )
 
+    except HTTPException as http_error:
+        raise http_error
+    except Exception:
+        raise HTTPException(status_code=500, detail="Orders get failed")
+
+
+@router.get("/{order_id}")
+def get_order(order_id: str, payload = Depends(get_payload), db: Session = Depends(get_db)):
+    try:
+        db_order = db.query(Order).filter(Order.id == order_id).first()
+        if not db_order:
+            raise HTTPException(status_code=404, detail="Order not found")
+        
+        if payload["role"] != "admin" and payload["sub"] != db_order.user_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        return response_handler(
+            status=True,
+            message="Order found",
+            data=OutFullOrder.model_validate(db_order).model_dump(),
+            status_code=200
+        )
     except HTTPException as http_error:
         raise http_error
     except Exception:
