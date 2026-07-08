@@ -32,6 +32,9 @@ def calculate_order_totals(data, product_ids, db_products):
     for item in data.items:
         db_product = products_map[item.product_id]
 
+        if not db_product.is_available:
+            raise HTTPException(status_code=400, detail="The product is not available")
+
         discounted_price = calculate_discounted_price(db_product.price, db_product.discount_percent)
         final_total_price += discounted_price * item.quantity
         original_total_price += db_product.price * item.quantity

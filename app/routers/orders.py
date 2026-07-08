@@ -183,7 +183,7 @@ def update_status(
         payload = Depends(get_payload), 
         db: Session = Depends(get_db)
     ):
-    # try:
+    try:
         db_order = db.query(Order).filter(Order.id == order_id).first()
         if not db_order:
             raise HTTPException(status_code=404, detail="Order not found")
@@ -238,10 +238,10 @@ def update_status(
             data=OutOrder.model_validate(db_order).model_dump(),
             status_code=200
         )
-    # except HTTPException as http_error:
-    #     db.rollback()
-    #     raise http_error
-    # except Exception:
-    #     db.rollback()
-    #     raise HTTPException(status_code=500, detail="Order update status failed")
+    except HTTPException as http_error:
+        db.rollback()
+        raise http_error
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Order update status failed")
 
