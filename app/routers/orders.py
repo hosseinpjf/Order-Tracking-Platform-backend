@@ -5,7 +5,7 @@ import math
 from datetime import datetime, timezone
 from app.db.session import get_db
 from app.services.jwt_bearer import get_payload
-from app.schemas.order import CreateOrder, OutOrder, UpdateStatus, OutFullOrder
+from app.schemas.order import CreateOrder, OutOrder, UpdateStatus, OutFullOrder, OrderItemInput
 from app.models.order import Order, OrderStatus, OrderType, OrderSort, ALLOWED_TRANSITIONS
 from app.models.order_item import OrderItem
 from app.models.order_status_history import OrderStatusHistory
@@ -26,10 +26,10 @@ def create_order(data: CreateOrder, payload = Depends(get_payload), db: Session 
         
         product_ids = [item.product_id for item in data.items]
         db_products = db.query(Product).filter(Product.id.in_(product_ids)).all()
-        values = calculate_order_totals(data, product_ids, db_products)
+        values = calculate_order_totals(data.items, product_ids, db_products)
 
         db_user = db.query(User).filter(User.id == payload["sub"]).first()
-        
+
         # Order
         new_order = Order(
             user_id = payload["sub"],
@@ -251,4 +251,61 @@ def update_status(
     except Exception:
         db.rollback()
         raise HTTPException(status_code=500, detail="Order update status failed")
+
+
+@router.post("/{order_id}/items")
+def add_item(order_id: str, data: OrderItemInput, payload = Depends(get_payload), db: Session = Depends(get_db)):
+    try:
+        db_order = db.query(Order).filter(Order.id == order_id).first()
+        if not db_order:
+            raise HTTPException(status_code=404, detail="Order not found")
+        
+        if payload["role"] != "admin" and payload["sub"] != db_order.user_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        if db_order.status not in [OrderStatus.pending]:
+            raise HTTPException(status_code=400, detail="Order cannot be modified in this status")
+
+        db_product = db.query(Product).filter(Product.id == data.product_id, Product.is_available == True).first()
+        if not db_product:
+            raise HTTPException(status_code=404, detail="Product not found")
+        
+        product_ids = [item.product_id for item in db_order.items]
+        if data.product_id in product_ids:
+            raise HTTPException(status_code=409, detail="Product already exists")
+        
+        price_at_time = calculate_discounted_price(db_product.price, db_product.discount_percent)
+        new_order_item = OrderItem(
+            order_id = order_id,
+            product_id = data.product_id,
+            quantity = data.quantity,
+            price_at_time = price_at_time
+        )
+        db.add(new_order_item)
+        db.flush()
+        db.refresh(db_order)
+
+        product_ids = [item.product_id for item in db_order.items]
+        db_products = db.query(Product).filter(Product.id.in_(product_ids)).all()
+        values = calculate_order_totals(db_order.items, product_ids, db_products)
+
+        db_order.items_count = len(db_order.items)
+        db_order.original_total_price = values["original_total_price"]
+        db_order.final_total_price = values["final_total_price"]
+        db_order.total_prepare_time = values["total_prepare_time"]
+
+        db.commit()
+
+        return response_handler(
+            status=True,
+            message="Item successfully added",
+            data=OutOrder.model_validate(db_order).model_dump(),
+            status_code=200
+        )
+    except HTTPException as http_error:
+        db.rollback()
+        raise http_error
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Order add item failed")
 

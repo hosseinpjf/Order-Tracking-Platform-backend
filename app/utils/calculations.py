@@ -19,7 +19,7 @@ def calculate_discounted_price(price: int | float, discount_percent: int | float
     return int(discounted_price)
 
 
-def calculate_order_totals(data, product_ids, db_products):
+def calculate_order_totals(items, product_ids, db_products):
     
     original_total_price = 0
     final_total_price = 0
@@ -29,7 +29,7 @@ def calculate_order_totals(data, product_ids, db_products):
         raise HTTPException(status_code=404, detail="One or more products not found")
 
     products_map = {p.id: p for p in db_products}
-    for item in data.items:
+    for item in items:
         db_product = products_map[item.product_id]
 
         if not db_product.is_available:
