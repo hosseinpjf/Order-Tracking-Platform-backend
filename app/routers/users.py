@@ -226,7 +226,7 @@ def get_me(payload = Depends(get_payload), db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail="Me get failed")
 
 
-@router.get("/users")
+@router.get("/")
 def get_users(
         payload = Depends(get_payload), 
         db: Session = Depends(get_db), 
@@ -245,7 +245,7 @@ def get_users(
         if role:
             query = query.filter(User.role == role)
         if q:
-            query = query = query.filter(or_(User.name.ilike(f"%{q}%"), User.phone.ilike(f"%{q}%")))
+            query = query.filter(or_(User.name.ilike(f"%{q}%"), User.phone.ilike(f"%{q}%")))
 
         db_users_total = query.count()
         db_users = query.offset((page - 1) * limit).limit(limit).all()

@@ -17,6 +17,15 @@ class OrderStatus(enum.Enum):
     completed = "completed"    # نهایی شده
     canceled = "canceled"      # لغو شده
 
+ALLOWED_TRANSITIONS = {
+    OrderStatus.pending: {OrderStatus.confirmed, OrderStatus.canceled},
+    OrderStatus.confirmed: {OrderStatus.preparing, OrderStatus.canceled},
+    OrderStatus.preparing: {OrderStatus.delivering, OrderStatus.completed, OrderStatus.canceled},
+    OrderStatus.delivering: {OrderStatus.completed, OrderStatus.canceled},
+    OrderStatus.completed: set(),
+    OrderStatus.canceled: set(),
+}
+
 class OrderType(enum.Enum):
     takeaway = "takeaway"      # کاربر سفارش می‌دهد و خودش می‌آید می‌برد
     delivery = "delivery"      # سفارش باید ارسال شود

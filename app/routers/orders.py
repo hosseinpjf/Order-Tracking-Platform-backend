@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from app.db.session import get_db
 from app.services.jwt_bearer import get_payload
 from app.schemas.order import CreateOrder, OutOrder, UpdateStatus, OutFullOrder
-from app.models.order import Order, OrderStatus, OrderType, OrderSort
+from app.models.order import Order, OrderStatus, OrderType, OrderSort, ALLOWED_TRANSITIONS
 from app.models.order_item import OrderItem
 from app.models.order_status_history import OrderStatusHistory
 from app.models.product import Product
@@ -91,6 +91,7 @@ def get_orders(
         status: OrderStatus | None = Query(None),
         order_type: OrderType | None = Query(None),
         user_id: str | None = Query(None),
+        q: str | None = Query(None),
         sort: OrderSort | None = Query(None),
         from_date: datetime | None = Query(None),
         to_date: datetime | None = Query(None)
@@ -104,6 +105,8 @@ def get_orders(
 
         if payload["role"] == "admin" and user_id:
             query = query.filter(Order.user_id == user_id)
+        if payload["role"] == "admin" and q:
+            query = query.filter(Order.user_name.ilike(f"%{q}%"))
 
         if status:
             query = query.filter(Order.status == status)
@@ -199,6 +202,10 @@ def update_status(
         
         if db_order_status_history.status == OrderStatus.completed or db_order_status_history.status == OrderStatus.canceled:
             raise HTTPException(status_code=404, detail="The order is in the final status")
+        
+        allowed = ALLOWED_TRANSITIONS.get(db_order_status_history.status, set())
+        if data.status not in allowed:
+            raise HTTPException(status_code=400, detail="Invalid status transition")
             
         db_order.status = data.status
 
