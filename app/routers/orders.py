@@ -309,3 +309,50 @@ def add_item(order_id: str, data: OrderItemInput, payload = Depends(get_payload)
         db.rollback()
         raise HTTPException(status_code=500, detail="Order add item failed")
 
+
+@router.delete("/{order_id}/items/{item_id}")
+def delete_item(order_id: str, item_id: str, payload = Depends(get_payload), db: Session = Depends(get_db)):
+    try:
+        db_order = db.query(Order).filter(Order.id == order_id).first()
+        if not db_order:
+            raise HTTPException(status_code=404, detail="Order not found")
+
+        if payload["role"] != "admin" and payload["sub"] != db_order.user_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        if db_order.status not in [OrderStatus.pending]:
+            raise HTTPException(status_code=400, detail="Order cannot be modified in this status")
+
+        db_order_item = db.query(OrderItem).filter(OrderItem.id == item_id).first()
+        if not db_order_item:
+            raise HTTPException(status_code=404, detail="Order item not found")
+        
+        db.delete(db_order_item)
+        db.flush()
+        db.refresh(db_order)
+
+        product_ids = [item.product_id for item in db_order.items]
+        db_products = db.query(Product).filter(Product.id.in_(product_ids)).all()
+        values = calculate_order_totals(db_order.items, product_ids, db_products)
+
+        db_order.items_count = len(db_order.items)
+        db_order.original_total_price = values["original_total_price"]
+        db_order.final_total_price = values["final_total_price"]
+        db_order.total_prepare_time = values["total_prepare_time"]
+
+        db.commit()
+        db.refresh(db_order)
+
+        return response_handler(
+            status=True,
+            message="Item successfully deleted",
+            data=OutOrder.model_validate(db_order).model_dump(),
+            status_code=200
+        )
+    except HTTPException as http_error:
+        db.rollback()
+        raise http_error
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Order add item failed")
+
