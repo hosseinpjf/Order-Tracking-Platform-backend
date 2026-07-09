@@ -5,7 +5,7 @@ import math
 from datetime import datetime, timezone
 from app.db.session import get_db
 from app.services.jwt_bearer import get_payload
-from app.schemas.order import CreateOrder, OutOrder, UpdateStatus, OutFullOrder, OrderItemInput
+from app.schemas.order import CreateOrder, OutOrder, UpdateStatus, OutFullOrder, OrderItemInput, UpdateOrderItem
 from app.models.order import Order, OrderStatus, OrderType, OrderSort, ALLOWED_TRANSITIONS, PaymentType
 from app.models.order_item import OrderItem
 from app.models.order_status_history import OrderStatusHistory, StatusChangedBy
@@ -34,7 +34,8 @@ def create_order(data: CreateOrder, payload = Depends(get_payload), db: Session 
         new_order = Order(
             user_id = payload["sub"],
             user_name = db_user.name,
-            order_type = data.order_type,
+            order_type = OrderType[data.order_type],
+            payment_type = PaymentType[data.payment_type],
             status = OrderStatus.pending,
             items_count = len(data.items),
             original_total_price = values["original_total_price"],
@@ -211,11 +212,14 @@ def update_status(
         if not db_order_status_history:
             raise HTTPException(status_code=404, detail="Order status history not found")
         
+        if data.status == OrderStatus.delivering and db_order.order_type != OrderType.delivery:
+            raise HTTPException(400, "Only delivery orders can enter delivering status")
+   
         allowed = ALLOWED_TRANSITIONS.get(db_order_status_history.status, set())
-        if data.status not in allowed:
+        if OrderStatus[data.status] not in allowed:
             raise HTTPException(status_code=400, detail="Invalid status transition")
             
-        db_order.status = data.status
+        db_order.status = OrderStatus[data.status]
 
         end_at_status = datetime.now(timezone.utc)
 
@@ -231,7 +235,7 @@ def update_status(
         if data.status == OrderStatus.completed or data.status == OrderStatus.canceled:
             new_order_status_history = OrderStatusHistory(
                 order_id = order_id,
-                status = data.status,
+                status = OrderStatus[data.status],
                 changed_by = StatusChangedBy.system if data.changed_by == StatusChangedBy.system.value else StatusChangedBy[payload["role"]],
                 duration_seconds = 0,
                 end_at = datetime.now(timezone.utc)
@@ -240,7 +244,7 @@ def update_status(
         else:
             new_order_status_history = OrderStatusHistory(
                 order_id = order_id,
-                status = data.status,
+                status = OrderStatus[data.status],
             )
             db.add(new_order_status_history)
         
@@ -366,7 +370,7 @@ def delete_item(order_id: str, item_id: str, payload = Depends(get_payload), db:
 
 
 @router.patch("/{order_id}/items/{item_id}")
-def update_item(order_id: str, item_id: str, data: OrderItemInput, payload = Depends(get_payload), db: Session = Depends(get_db)):
+def update_item(order_id: str, item_id: str, data: UpdateOrderItem, payload = Depends(get_payload), db: Session = Depends(get_db)):
     try:
         db_order = db.query(Order).filter(Order.id == order_id).first()
         if not db_order:

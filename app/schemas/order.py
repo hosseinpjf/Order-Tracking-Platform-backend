@@ -1,14 +1,18 @@
 from pydantic import BaseModel, Field, ConfigDict
 from datetime import datetime
 from typing import List
-from app.models.order import OrderType, OrderStatus
+from app.models.order import OrderType, OrderStatus, PaymentType
 from app.models.order_status_history import StatusChangedBy
+
+class UpdateOrderItem(BaseModel):
+    quantity: int = Field(..., gt=0)
 
 class OrderItemInput(BaseModel):
     product_id: str
     quantity: int = Field(..., gt=0)
 
 class CreateOrder(BaseModel):
+    payment_type: PaymentType
     order_type: OrderType
     items: List[OrderItemInput] = Field(default_factory=list)
 
