@@ -25,7 +25,8 @@ def register_user(request: Request, user_data: RegisterUser, device_data: Device
         new_user = User(
             name = user_data.name, 
             phone = user_data.phone, 
-            password = hash_password(user_data.password)
+            password = hash_password(user_data.password),
+            address = user_data.address
         )
         db.add(new_user)
         db.flush()

@@ -16,7 +16,10 @@ class User(Base):
     name = Column(String(50), nullable=False)
     phone = Column(String(11), nullable=False, unique=True)
     password = Column(String(255), nullable=False)
+    address = Column(String, nullable=False)
     role = Column(Enum(UserRole), default=UserRole.user, nullable=False)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     
     devices = relationship("DeviceTracking", back_populates="user", cascade="all, delete-orphan")
+    orders = relationship("Order", back_populates="user")
+    

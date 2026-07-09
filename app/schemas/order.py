@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import List
 from app.models.order import OrderType, OrderStatus, PaymentType
 from app.models.order_status_history import StatusChangedBy
+from app.schemas.user import OutUser
 
 class UpdateOrderItem(BaseModel):
     quantity: int = Field(..., gt=0)
@@ -50,6 +51,7 @@ class OutFullOrder(BaseModel):
     created_at: datetime
     items: List[OutOrderItems]
     status_history: List[OutOrderStatusHistory]
+    user: OutUser
 
 class OutOrderItems(BaseModel):
     model_config = ConfigDict(from_attributes=True)

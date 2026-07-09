@@ -6,6 +6,7 @@ class RegisterUser(BaseModel):
     name: str = Field(..., min_length=2, max_length=50)
     phone: str = Field(..., pattern=r"^09\d{9}$")
     password: str = Field(..., min_length=8, max_length=128)
+    address: str = Field(..., min_length=5, max_length=500)
 
 class LoginUser(BaseModel):
     phone: str = Field(..., pattern=r"^09\d{9}$")
@@ -32,6 +33,7 @@ class OutUser(BaseModel):
     id: str
     name: str
     phone: str
+    address: str
     role: UserRole
     created_at: datetime
     devices: list[OutDevice]
