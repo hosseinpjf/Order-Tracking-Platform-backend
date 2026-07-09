@@ -8,7 +8,7 @@ from app.services.jwt_bearer import get_payload
 from app.schemas.order import CreateOrder, OutOrder, UpdateStatus, OutFullOrder, OrderItemInput
 from app.models.order import Order, OrderStatus, OrderType, OrderSort, ALLOWED_TRANSITIONS, PaymentType
 from app.models.order_item import OrderItem
-from app.models.order_status_history import OrderStatusHistory
+from app.models.order_status_history import OrderStatusHistory, StatusChangedBy
 from app.models.product import Product
 from app.models.user import User
 from app.middleware.exception_handler import response_handler
@@ -201,7 +201,7 @@ def update_status(
                 raise HTTPException(status_code=403, detail="Users can only cancel their own orders")
             if db_order.status not in [OrderStatus.pending]:
                 raise HTTPException(status_code=400, detail="Order cannot be canceled in this status")
-
+            
         db_order_status_history = (
             db.query(OrderStatusHistory)
             .filter(OrderStatusHistory.order_id == order_id)
@@ -210,9 +210,6 @@ def update_status(
         )
         if not db_order_status_history:
             raise HTTPException(status_code=404, detail="Order status history not found")
-        
-        if db_order_status_history.status == OrderStatus.completed or db_order_status_history.status == OrderStatus.canceled:
-            raise HTTPException(status_code=404, detail="The order is in the final status")
         
         allowed = ALLOWED_TRANSITIONS.get(db_order_status_history.status, set())
         if data.status not in allowed:
@@ -225,17 +222,17 @@ def update_status(
         if db_order_status_history.start_at.tzinfo is None:
             db_order_status_history.start_at = db_order_status_history.start_at.replace(tzinfo=timezone.utc)
 
-        db_order_status_history.changed_by = data.changed_by
         db_order_status_history.end_at = end_at_status
         db_order_status_history.duration_seconds = int(
             (end_at_status - db_order_status_history.start_at).total_seconds()
         )
+        db_order_status_history.changed_by = StatusChangedBy.system if data.changed_by == StatusChangedBy.system.value else StatusChangedBy[payload["role"]]
 
         if data.status == OrderStatus.completed or data.status == OrderStatus.canceled:
             new_order_status_history = OrderStatusHistory(
                 order_id = order_id,
                 status = data.status,
-                changed_by = data.changed_by,
+                changed_by = StatusChangedBy.system if data.changed_by == StatusChangedBy.system.value else StatusChangedBy[payload["role"]],
                 duration_seconds = 0,
                 end_at = datetime.now(timezone.utc)
             )
@@ -414,4 +411,76 @@ def update_item(order_id: str, item_id: str, data: OrderItemInput, payload = Dep
     except Exception:
         db.rollback()
         raise HTTPException(status_code=500, detail="Order update item failed")
+
+
+@router.post("/{order_id}/pay")
+def pay_order(order_id: str, payload = Depends(get_payload), db: Session = Depends(get_db)):
+    # This section is for demonstration purposes only and is incomplete.
+    try:
+        db_order = db.query(Order).filter(Order.id == order_id).first()
+        if not db_order:
+            raise HTTPException(status_code=404, detail="Order not found")
+        
+        if db_order.status != OrderStatus.pending:
+            raise HTTPException(status_code=400, detail="Order cannot be paid in this status")
+        
+        if db_order.payment_type == PaymentType.online:
+            if payload["sub"] != db_order.user_id:
+                raise HTTPException(status_code=403, detail="Only user can pay online")
+            
+            db_order.status = OrderStatus.confirmed
+            
+            new_order_status_history = OrderStatusHistory(
+                order_id = order_id,
+                status = OrderStatus.confirmed,
+                changed_by = StatusChangedBy[payload["role"]]
+            )
+            db.add(new_order_status_history)
+            db.commit()
+            db.refresh(db_order)
+
+            gateway_url = f"https://bank.example.com/pay?order_id={order_id}&amount={db_order.final_total_price}"
+            return response_handler(
+                status=True,
+                message="Redirect to payment gateway",
+                data={
+                    "payment_url": gateway_url,
+                    "order": OutOrder.model_validate(db_order).model_dump()
+                },
+                status_code=200
+            )
+
+        elif db_order.payment_type == PaymentType.offline:
+            if payload["role"] != "admin":
+                raise HTTPException(status_code=403, detail="Only admin can confirm offline payments")
+            
+            db_order.status = OrderStatus.confirmed
+
+            new_order_status_history = OrderStatusHistory(
+                order_id = order_id,
+                status = OrderStatus.confirmed,
+                changed_by = StatusChangedBy[payload["role"]]
+            )
+            db.add(new_order_status_history)
+            db.commit()
+            db.refresh(db_order)
+
+            return response_handler(
+                status=True,
+                message="Offline payment confirmed",
+                data={
+                    "order": OutOrder.model_validate(db_order).model_dump()
+                },
+                status_code=200
+            )
+        
+        else:
+            raise HTTPException(status_code=400, detail="Invalid payment type")
+        
+    except HTTPException as http_error:
+        db.rollback()
+        raise http_error
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Order payment failed")
 

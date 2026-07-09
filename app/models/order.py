@@ -18,7 +18,7 @@ class OrderStatus(enum.Enum):
     canceled = "canceled"      # لغو شده
 
 ALLOWED_TRANSITIONS = {
-    OrderStatus.pending: {OrderStatus.confirmed, OrderStatus.canceled},
+    OrderStatus.pending: set(),
     OrderStatus.confirmed: {OrderStatus.preparing, OrderStatus.canceled},
     OrderStatus.preparing: {OrderStatus.delivering, OrderStatus.completed, OrderStatus.canceled},
     OrderStatus.delivering: {OrderStatus.completed, OrderStatus.canceled},
