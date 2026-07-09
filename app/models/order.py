@@ -31,6 +31,10 @@ class OrderType(enum.Enum):
     delivery = "delivery"      # سفارش باید ارسال شود
     dine_in = "dine_in"        # سفارش برای مصرف داخل مجموعه است
 
+class PaymentType(enum.Enum):
+    online = "online"      # پرداخت آنلاین توسط کاربر
+    offline = "offline"    # پرداخت حضوری (نقدی یا کارت‌خوان)
+
 class OrderSort(enum.Enum):
     price_desc = "price_desc"                 # گران ترین
     price_asc = "price_asc"                   # ارزان ترین
@@ -48,6 +52,7 @@ class Order(Base):
 
     status = Column(Enum(OrderStatus), nullable=False, default=OrderStatus.pending)
     order_type = Column(Enum(OrderType), nullable=False)
+    payment_type = Column(Enum(PaymentType), nullable=False)
     items_count = Column(Integer, nullable=False, default=0)
 
     original_total_price = Column(Integer, nullable=False)

@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from app.db.session import get_db
 from app.services.jwt_bearer import get_payload
 from app.schemas.order import CreateOrder, OutOrder, UpdateStatus, OutFullOrder, OrderItemInput
-from app.models.order import Order, OrderStatus, OrderType, OrderSort, ALLOWED_TRANSITIONS
+from app.models.order import Order, OrderStatus, OrderType, OrderSort, ALLOWED_TRANSITIONS, PaymentType
 from app.models.order_item import OrderItem
 from app.models.order_status_history import OrderStatusHistory
 from app.models.product import Product
@@ -90,6 +90,7 @@ def get_orders(
         limit: int = Query(20, ge=1, le=100),
         status: OrderStatus | None = Query(None),
         order_type: OrderType | None = Query(None),
+        payment_type: PaymentType | None = Query(None),
         user_id: str | None = Query(None),
         q: str | None = Query(None),
         sort: OrderSort | None = Query(None),
@@ -112,6 +113,8 @@ def get_orders(
             query = query.filter(Order.status == status)
         if order_type:
             query = query.filter(Order.order_type == order_type)
+        if payment_type:
+            query = query.filter(Order.payment_type == payment_type)
 
         if from_date:
             query = query.filter(Order.created_at >= from_date)
@@ -181,9 +184,9 @@ def get_order(order_id: str, payload = Depends(get_payload), db: Session = Depen
 
 @router.patch("/{order_id}/status")
 def update_status(
-        order_id: str, 
-        data: UpdateStatus, 
-        payload = Depends(get_payload), 
+        order_id: str,
+        data: UpdateStatus,
+        payload = Depends(get_payload),
         db: Session = Depends(get_db)
     ):
     try:
@@ -191,6 +194,14 @@ def update_status(
         if not db_order:
             raise HTTPException(status_code=404, detail="Order not found")
         
+        if payload["role"] != "admin":
+            if payload["sub"] != db_order.user_id:
+                raise HTTPException(status_code=403, detail="Access denied")
+            if data.status != OrderStatus.canceled:
+                raise HTTPException(status_code=403, detail="Users can only cancel their own orders")
+            if db_order.status not in [OrderStatus.pending]:
+                raise HTTPException(status_code=400, detail="Order cannot be canceled in this status")
+
         db_order_status_history = (
             db.query(OrderStatusHistory)
             .filter(OrderStatusHistory.order_id == order_id)
