@@ -35,6 +35,7 @@ class Table(Base):
 
     id = Column(String, primary_key=True, index=True, default=lambda: uuid.uuid4().hex)
     number = Column(Integer, unique=True, nullable=False)
+    image = Column(String, nullable=False)
     capacity = Column(Integer, nullable=False)
     location = Column(String, nullable=False)
     status = Column(Enum(TableStatus), default=TableStatus.free)

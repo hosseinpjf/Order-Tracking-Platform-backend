@@ -12,6 +12,7 @@ from .routers.products import router as router_products
 from .routers.uploads import router as router_uploads
 from .routers.categories import router as router_categories
 from .routers.orders import router as router_orders
+from .routers.tables import router as router_tables
 
 
 app = FastAPI()
@@ -26,6 +27,7 @@ app.include_router(router_products)
 app.include_router(router_uploads)
 app.include_router(router_categories)
 app.include_router(router_orders)
+app.include_router(router_tables)
 
 app.add_exception_handler(HTTPException, http_exception_handler)
 app.add_exception_handler(Exception, general_exception_handler)
