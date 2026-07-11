@@ -11,6 +11,15 @@ class CreateTable(BaseModel):
     status: TableStatus = TableStatus.free
     tags: List[TableTags] = Field(default_factory=list)
 
+class UpdateTable(BaseModel):
+    number: int | None = Field(None, gt=0)
+    image: str | None = Field(None, pattern=r"^/uploads/[A-Za-z0-9_\-./]+\.(jpg|jpeg|png|webp)$")
+    capacity: int | None = Field(None, gt=0)
+    location: str | None = Field(None, min_length=1)
+    status: TableStatus | None = None
+    tags: List[TableTags] | None = None
+
+
 class OutTable(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: str

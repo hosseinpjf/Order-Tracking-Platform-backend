@@ -1,20 +1,16 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import or_
-from datetime import datetime, timezone
-import math
 from sqlalchemy import func
-from app.schemas.table import CreateTable, OutTable
-from app.schemas.device_tracking import DeviceData
 from app.db.session import get_db
-from app.models.table import Table, TableStatus, TableTags
-from app.models.device_tracking import DeviceTracking
-from app.services.tokens import create_access_token, create_refresh_token, verify_token
-from app.utils.hashing import hash_password, verify_password, hash_token
-from app.middleware.exception_handler import response_handler
 from app.services.jwt_bearer import get_payload
+from app.middleware.exception_handler import response_handler
+from app.models.table import Table, TableStatus, TableTags
+from app.schemas.table import CreateTable, OutTable, UpdateTable
+from app.utils.delete_file import delete_file
+
 
 router = APIRouter(prefix="/table", tags=["Table"])
+
 
 @router.post("/")
 def create_table(data: CreateTable, payload = Depends(get_payload), db: Session = Depends(get_db)):
@@ -49,6 +45,7 @@ def create_table(data: CreateTable, payload = Depends(get_payload), db: Session 
         db.rollback()
         raise HTTPException(status_code=500, detail="Table create failed")
 
+
 @router.get("/")
 def get_tables(
         db: Session = Depends(get_db),
@@ -80,8 +77,52 @@ def get_tables(
             status_code=200
         )
     except HTTPException as http_error:
+        raise http_error
+    except Exception:
+        raise HTTPException(status_code=500, detail="Table get failed")
+
+
+@router.patch("/{table_id}")
+def update_table(table_id: str, data: UpdateTable, payload = Depends(get_payload), db: Session = Depends(get_db)):
+    try:
+        if payload["role"] != "admin":
+            raise HTTPException(status_code=403, detail="Access denied")
+
+        db_table = db.query(Table).filter(Table.id == table_id).first()
+
+        if not db_table:
+            raise HTTPException(status_code=404, detail="table not found")
+        
+        old_image = None
+
+        update_data = data.model_dump(
+            exclude_unset=True,
+            exclude_none=True
+        )
+
+        if "image" in update_data and db_table.image and db_table.image != update_data["image"]:
+            old_image = db_table.image
+
+        for key, value in update_data.items():
+            if key == "tags":
+                value = [tag.value for tag in value]
+            setattr(db_table, key, value)
+
+        db.commit()
+        db.refresh(db_table)
+        
+        if old_image:
+            delete_file(old_image, "tables")
+
+        return response_handler(
+            status=True,
+            message="Data update completed successfully",
+            data=OutTable.model_validate(db_table).model_dump(),
+            status_code=200
+        )
+    except HTTPException as http_error:
         db.rollback()
         raise http_error
     except Exception:
         db.rollback()
-        raise HTTPException(status_code=500, detail="Table get failed")
+        raise HTTPException(status_code=500, detail="table update failed")
