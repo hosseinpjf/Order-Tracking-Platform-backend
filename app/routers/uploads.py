@@ -3,26 +3,27 @@ from typing import List
 import uuid
 import os
 import aiofiles
+from PIL import Image
+from io import BytesIO
 from app.middleware.exception_handler import response_handler
 from app.services.jwt_bearer import get_payload
 from app.config.settings import settings
+from app.utils.delete_file import cleanup, delete_file
+
 
 router = APIRouter(prefix="/upload", tags=["Upload"])
 
-def cleanup(saved_paths):
-    for path in saved_paths:
-        try:
-            if os.path.exists(path):
-                os.remove(path)
-        except OSError:
-            pass
 
-@router.post("/image")
-async def upload_image(files: List[UploadFile] = File(...), positions: List[str] = Form(...), payload = Depends(get_payload)):
+@router.post("/images/{folder_name}")
+async def upload_images(folder_name: str, files: List[UploadFile] = File(...), positions: List[str] = Form(...), payload = Depends(get_payload)):
     saved_paths = []
     try:
         if payload["role"] != "admin":
             raise HTTPException(status_code=403, detail="Access denied")
+        
+        if folder_name not in settings.ALLOWED_FOLDERS:
+            raise HTTPException(400, "Invalid folder")
+        IMAGE_REPOSITORY: str = os.path.join("media", "uploads", folder_name)
 
         if not files:
             raise HTTPException(status_code=400, detail="At least one file is required")
@@ -30,7 +31,7 @@ async def upload_image(files: List[UploadFile] = File(...), positions: List[str]
         if len(files) != len(positions):
             raise HTTPException(status_code=400, detail="Files and positions length mismatch")
 
-        os.makedirs(settings.UPLOAD_IMAGES_PRODUCT, exist_ok=True)
+        os.makedirs(IMAGE_REPOSITORY, exist_ok=True)
 
         results = []
         for file, position in zip(files, positions):
@@ -46,23 +47,27 @@ async def upload_image(files: List[UploadFile] = File(...), positions: List[str]
 
             if len(content) > settings.MAX_FILE_SIZE:
                 raise HTTPException(status_code=400, detail="File too large (max 5MB)")
+            
+            try: 
+                with Image.open(BytesIO(content)) as img: img.verify()
+            except Exception: raise HTTPException(status_code=400, detail="Invalid image file")
 
             file_name = f"{uuid.uuid4().hex}.{file_ext}"
-            file_path = os.path.join(settings.UPLOAD_IMAGES_PRODUCT, file_name)
-
-            saved_paths.append(file_path)
+            file_path = os.path.join(IMAGE_REPOSITORY, file_name)
             
             async with aiofiles.open(file_path, "wb") as buffer:
                 await buffer.write(content)
 
+            saved_paths.append(file_path)
+
             results.append({
-                "url": f"/{settings.UPLOAD_IMAGES_PRODUCT}/{file_name}",
+                "url": f"/{IMAGE_REPOSITORY}/{file_name}",
                 "position": position
             })
 
         return response_handler(
             status = True,
-            message="Image uploaded successfully",
+            message="Images uploaded successfully",
             data=results,
             status_code=201
         )
@@ -71,4 +76,6 @@ async def upload_image(files: List[UploadFile] = File(...), positions: List[str]
         raise
     except Exception:
         cleanup(saved_paths)
-        raise HTTPException(status_code=500, detail="Image upload failed")
+        raise HTTPException(status_code=500, detail="Images upload failed")
+
+
