@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int
     REFRESH_TOKEN_EXPIRE_DAYS: int
 
-    ALLOWED_FOLDERS = ["products", "tables", "categories"]
+    ALLOWED_FOLDERS: list = ["products", "tables", "categories"]
     ALLOWED_EXTENSIONS: list = ["jpg", "jpeg", "png", "webp"]
     ALLOWED_CONTENT_TYPES: list = ["image/jpg", "image/jpeg", "image/png", "image/webp"]
     MAX_FILE_SIZE: int = 5 * 1024 * 1024  # 5MB

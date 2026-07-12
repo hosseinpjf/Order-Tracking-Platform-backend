@@ -8,7 +8,8 @@ from io import BytesIO
 from app.middleware.exception_handler import response_handler
 from app.services.jwt_bearer import get_payload
 from app.config.settings import settings
-from app.utils.delete_file import cleanup, delete_file
+from app.utils.delete_file import delete_files, delete_file
+from pathlib import PurePosixPath
 
 
 router = APIRouter(prefix="/upload", tags=["Upload"])
@@ -60,8 +61,9 @@ async def upload_images(folder_name: str, files: List[UploadFile] = File(...), p
 
             saved_paths.append(file_path)
 
+            url = "/" + str(PurePosixPath("media", "uploads", folder_name, file_name))
             results.append({
-                "url": f"/{IMAGE_REPOSITORY}/{file_name}",
+                "url": url,
                 "position": position
             })
 
@@ -72,10 +74,62 @@ async def upload_images(folder_name: str, files: List[UploadFile] = File(...), p
             status_code=201
         )
     except HTTPException:
-        cleanup(saved_paths)
+        delete_files(saved_paths)
         raise
     except Exception:
-        cleanup(saved_paths)
+        delete_files(saved_paths)
         raise HTTPException(status_code=500, detail="Images upload failed")
 
+
+@router.post("/image/{folder_name}")
+async def upload_image(folder_name: str, file: UploadFile = File(...), payload = Depends(get_payload)):
+    file_name = None
+    try:
+        if payload["role"] != "admin":
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        if folder_name not in settings.ALLOWED_FOLDERS:
+            raise HTTPException(400, "Invalid folder")
+        IMAGE_REPOSITORY: str = os.path.join("media", "uploads", folder_name)
+
+        if not file:
+            raise HTTPException(status_code=400, detail="At least one file is required")
+        
+        os.makedirs(IMAGE_REPOSITORY, exist_ok=True)
+
+        if file.content_type not in settings.ALLOWED_CONTENT_TYPES:
+            raise HTTPException(status_code=400, detail="Only image file are allowed")
+        
+        file_ext = file.filename.rsplit(".", 1)[-1].lower() if "." in file.filename else ""
+        if file_ext not in settings.ALLOWED_EXTENSIONS:
+            raise HTTPException(status_code=400, detail="Invalid file extension")
+        
+        content = await file.read()
+
+        if len(content) > settings.MAX_FILE_SIZE:
+            raise HTTPException(status_code=400, detail="File too large (max 5MB)")
+        
+        try: 
+            with Image.open(BytesIO(content)) as img: img.verify()
+        except Exception: raise HTTPException(status_code=400, detail="Invalid image file")
+
+        file_name = f"{uuid.uuid4().hex}.{file_ext}"
+        file_path = os.path.join(IMAGE_REPOSITORY, file_name)
+        
+        async with aiofiles.open(file_path, "wb") as buffer:
+            await buffer.write(content)
+
+        url = "/" + str(PurePosixPath("media", "uploads", folder_name, file_name))
+        return response_handler(
+            status = True,
+            message="Image uploaded successfully",
+            data=url,
+            status_code=201
+        )
+    except HTTPException:
+        delete_file(file_name)
+        raise
+    except Exception:
+        delete_file(file_name)
+        raise HTTPException(status_code=500, detail="Image upload failed")
 

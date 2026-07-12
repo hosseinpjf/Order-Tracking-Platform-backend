@@ -1,20 +1,20 @@
 import os
 
-def delete_file(filename: str | None, folder: str):
-    if not filename or not folder: return
-
-    full_path = os.path.join("media", "uploads", folder, filename)
+def delete_file(filename: str | None):
+    if not filename: return
     try:
-        if os.path.exists(full_path):
-            os.remove(full_path)
+        if os.path.exists(filename):
+            os.remove(filename)
     except OSError:
         pass
 
 
-def cleanup(saved_paths):
-    for path in saved_paths:
+def delete_files(filenames):
+    if filenames == []: return
+    
+    for filename in filenames:
         try:
-            if os.path.exists(path):
-                os.remove(path)
+            if os.path.exists(filename):
+                os.remove(filename)
         except OSError:
             pass
