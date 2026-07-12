@@ -8,6 +8,7 @@ from app.schemas.product import CreateProduct, UpdateProduct, OutProduct
 from app.models.product import Product, ProductTags, ProductSort
 from app.models.category import Category
 from app.middleware.exception_handler import response_handler
+from app.utils.delete_file import delete_files
 
 router = APIRouter(prefix="/product", tags=["Product"])
 
@@ -145,10 +146,17 @@ def update_product(product_id: str, data: UpdateProduct, payload = Depends(get_p
         if not db_product:
             raise HTTPException(status_code=404, detail="Product not found")
 
+        old_images = []
+
         update_data = data.model_dump(
             exclude_unset=True,
             exclude_none=True
         )
+
+        if "images" in update_data:
+            new_images = [img.url for img in data.images]
+            old_images = [img["url"] for img in (db_product.images or [])]
+
         for key, value in update_data.items():
             if key == "tags":
                 value = [tag.value for tag in value]
@@ -156,6 +164,10 @@ def update_product(product_id: str, data: UpdateProduct, payload = Depends(get_p
 
         db.commit()
         db.refresh(db_product)
+
+        delete_images = set(old_images) - set(new_images)
+        if delete_images:
+            delete_files(delete_images)
 
         return response_handler(
             status=True,
@@ -178,12 +190,16 @@ def delete_product(product_id: str, payload = Depends(get_payload), db: Session 
             raise HTTPException(status_code=403, detail="Access denied")
 
         db_product = db.query(Product).filter(Product.id == product_id).first()
-
         if not db_product:
             raise HTTPException(status_code=404, detail="Product not found")
         
+        images = [img["url"] for img in (db_product.images or [])]
+        
         db.delete(db_product)
         db.commit()
+
+        if images:
+            delete_files(images)
 
         return response_handler(
             status=True,

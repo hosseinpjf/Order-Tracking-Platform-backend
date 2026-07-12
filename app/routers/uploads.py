@@ -59,9 +59,9 @@ async def upload_images(folder_name: str, files: List[UploadFile] = File(...), p
             async with aiofiles.open(file_path, "wb") as buffer:
                 await buffer.write(content)
 
-            saved_paths.append(file_path)
-
             url = "/" + str(PurePosixPath("media", "uploads", folder_name, file_name))
+            saved_paths.append(url)
+
             results.append({
                 "url": url,
                 "position": position

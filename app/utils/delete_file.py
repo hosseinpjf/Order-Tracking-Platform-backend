@@ -2,6 +2,8 @@ import os
 
 def delete_file(filename: str | None):
     if not filename: return
+    
+    filename = filename.lstrip("/")
     try:
         if os.path.exists(filename):
             os.remove(filename)
@@ -10,9 +12,10 @@ def delete_file(filename: str | None):
 
 
 def delete_files(filenames):
-    if filenames == []: return
+    if not filenames: return
     
     for filename in filenames:
+        filename = filename.lstrip("/")
         try:
             if os.path.exists(filename):
                 os.remove(filename)
