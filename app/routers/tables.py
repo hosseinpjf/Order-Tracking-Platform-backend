@@ -89,7 +89,6 @@ def update_table(table_id: str, data: UpdateTable, payload = Depends(get_payload
             raise HTTPException(status_code=403, detail="Access denied")
 
         db_table = db.query(Table).filter(Table.id == table_id).first()
-
         if not db_table:
             raise HTTPException(status_code=404, detail="table not found")
         
@@ -112,7 +111,7 @@ def update_table(table_id: str, data: UpdateTable, payload = Depends(get_payload
         db.refresh(db_table)
         
         if old_image:
-            delete_file(old_image, "tables")
+            delete_file(old_image)
 
         return response_handler(
             status=True,
@@ -126,3 +125,36 @@ def update_table(table_id: str, data: UpdateTable, payload = Depends(get_payload
     except Exception:
         db.rollback()
         raise HTTPException(status_code=500, detail="table update failed")
+
+
+@router.delete("/{table_id}")
+def delete_table(table_id: str, payload = Depends(get_payload), db: Session = Depends(get_db)):
+    try:
+        if payload["role"] != "admin":
+            raise HTTPException(status_code=403, detail="Access denied")
+
+        db_table = db.query(Table).filter(Table.id == table_id).first()
+        if not db_table:
+            raise HTTPException(status_code=404, detail="table not found")
+        
+        image = db_table.image
+        
+        db.delete(db_table)
+        db.commit()
+
+        if image:
+            delete_file(image)
+
+        return response_handler(
+            status=True,
+            message="Table deleted successfully",
+            data=None,
+            status_code=200
+        )
+    except HTTPException as http_error:
+        db.rollback()
+        raise http_error
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="table delete failed")
+

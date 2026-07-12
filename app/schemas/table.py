@@ -5,7 +5,7 @@ from app.models.table import TableTags, TableStatus
 
 class CreateTable(BaseModel):
     number: int = Field(..., gt=0)
-    image: str = Field(..., pattern=r"^/uploads/[A-Za-z0-9_\-./]+\.(jpg|jpeg|png|webp)$")
+    image: str = Field(..., pattern=r"^/media/uploads/[A-Za-z0-9_\-./]+\.(jpg|jpeg|png|webp)$")
     capacity: int = Field(..., gt=0)
     location: str = Field(..., min_length=1)
     status: TableStatus = TableStatus.free
@@ -13,7 +13,7 @@ class CreateTable(BaseModel):
 
 class UpdateTable(BaseModel):
     number: int | None = Field(None, gt=0)
-    image: str | None = Field(None, pattern=r"^/uploads/[A-Za-z0-9_\-./]+\.(jpg|jpeg|png|webp)$")
+    image: str | None = Field(None, pattern=r"^/media/uploads/[A-Za-z0-9_\-./]+\.(jpg|jpeg|png|webp)$")
     capacity: int | None = Field(None, gt=0)
     location: str | None = Field(None, min_length=1)
     status: TableStatus | None = None
