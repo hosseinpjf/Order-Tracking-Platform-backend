@@ -1,11 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone, timedelta, time
+import math
 from app.db.session import get_db
 from app.services.jwt_bearer import get_payload
 from app.middleware.exception_handler import response_handler
-from app.models.table_reservation import TableReservation, ReservationStatus
+from app.models.table_reservation import TableReservation, ReservationStatus, ReservationSort
 from app.models.table import Table
 from app.models.user import User
 from app.schemas.table_reservation import CreateReservation, OutReservation
@@ -79,3 +80,70 @@ def create_reservation(data: CreateReservation, payload = Depends(get_payload), 
         db.rollback()
         raise HTTPException(status_code=500, detail="Reservation creation failed")
 
+
+@router.get("/")
+def get_reservation(
+    payload = Depends(get_payload),
+    db: Session = Depends(get_db),
+    page: int = Query(1, ge=1), 
+    limit: int = Query(20, ge=1, le=100),
+    status: ReservationStatus | None = Query(None),
+    user_id: str | None = Query(None),
+    q: str | None = Query(None),
+    from_date: datetime | None = Query(None),
+    to_date: datetime | None = Query(None),
+    from_time: time | None = Query(None),
+    to_time: time | None = Query(None),
+    table_number: int | None = Query(None, gt=0),
+):
+    try:
+        db_reservation = []
+        query = db.query(TableReservation).order_by(TableReservation.start_time.desc())
+
+        if payload["role"] != "admin":
+            query = query.filter(TableReservation.user_id == payload["sub"])
+
+        if payload["role"] == "admin" and user_id:
+            query = query.filter(TableReservation.user_id == user_id)
+        if payload["role"] == "admin" and q:
+            query = query.filter(TableReservation.user_name.ilike(f"%{q}%"))
+
+        if status:
+            query = query.filter(TableReservation.status == status)
+
+        if from_date:
+            query = query.filter(TableReservation.start_time >= from_date)
+        if to_date:
+            query = query.filter(TableReservation.start_time <= to_date)
+
+        if from_time:
+            query = query.filter(func.time(TableReservation.start_time) >= from_time)
+        if to_time:
+            query = query.filter(func.time(TableReservation.start_time) <= to_time)
+
+        if table_number:
+            query = query.join(Table).filter(Table.number == table_number)
+
+        db_reservation_total = query.count()
+        db_reservation = query.offset((page - 1) * limit).limit(limit).all()
+
+        return response_handler(
+            status=True,
+            message="Reservations fetched successfully",
+            data={
+                "reservations": [
+                    OutReservation.model_validate(reservation).model_dump()
+                    for reservation in db_reservation
+                ],
+                "page": page,
+                "limit": limit,
+                "total": db_reservation_total,
+                "pages": math.ceil(db_reservation_total / limit)
+            },
+            status_code=200
+        )
+
+    except HTTPException as http_error:
+        raise http_error
+    except Exception:
+        raise HTTPException(status_code=500, detail="Reservation fetch failed")
