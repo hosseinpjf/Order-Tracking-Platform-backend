@@ -6,10 +6,10 @@ import math
 from app.db.session import get_db
 from app.services.jwt_bearer import get_payload
 from app.middleware.exception_handler import response_handler
-from app.models.table_reservation import TableReservation, ReservationStatus, ReservationSort
+from app.models.table_reservation import TableReservation, ReservationStatus, ALLOWED_TRANSITIONS_RESERVATION
 from app.models.table import Table
 from app.models.user import User
-from app.schemas.table_reservation import CreateReservation, OutReservation
+from app.schemas.table_reservation import CreateReservation, OutReservation, UpdateStatus
 from app.config.settings import settings
 
 
@@ -147,3 +147,38 @@ def get_reservation(
         raise http_error
     except Exception:
         raise HTTPException(status_code=500, detail="Reservation fetch failed")
+
+
+@router.patch("/{reservation_id}/status")
+def update_status(reservation_id: str, data: UpdateStatus, payload = Depends(get_payload), db: Session = Depends(get_db)):
+    try:
+        db_reservation = db.query(TableReservation).filter(TableReservation.id == reservation_id).first()
+        if not db_reservation:
+            raise HTTPException(status_code=404, detail="TableReservation not found")
+        
+        if payload["role"] != "admin":
+            if payload["sub"] != db_reservation.user_id:
+                raise HTTPException(status_code=403, detail="Access denied")
+            if data.status != ReservationStatus.cancelled:
+                raise HTTPException(status_code=403, detail="Users can only cancel their own TableReservations")
+
+        allowed = ALLOWED_TRANSITIONS_RESERVATION.get(db_reservation.status, set())
+        if data.status not in allowed:
+            raise HTTPException(status_code=400, detail="Invalid status transition")
+
+        db_reservation.status = ReservationStatus[data.status]
+        db.commit()
+        db.refresh(db_reservation)
+
+        return response_handler(
+            status=True,
+            message="Reservation status updated",
+            data=OutReservation.model_validate(db_reservation).model_dump(),
+            status_code=200
+        )
+    except HTTPException as http_error:
+        db.rollback()
+        raise http_error
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Reservation update failed")

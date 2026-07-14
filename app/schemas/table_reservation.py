@@ -7,6 +7,9 @@ class CreateReservation(BaseModel):
     start_time: datetime
     guests_count: int = Field(..., gt=0)
 
+class UpdateStatus(BaseModel):
+    status: ReservationStatus
+
 class OutReservation(BaseModel):
     id: str
     table_id: str

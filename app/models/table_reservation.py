@@ -15,6 +15,17 @@ class ReservationStatus(enum.Enum):
     cancelled = "cancelled"     # توسط کاربر یا ادمین لغو شده
     rejected = "rejected"       # توسط ادمین رد شده
 
+ALLOWED_TRANSITIONS_RESERVATION = {
+    ReservationStatus.pending: {ReservationStatus.confirmed, ReservationStatus.cancelled, ReservationStatus.rejected},
+    ReservationStatus.confirmed: {ReservationStatus.seated, ReservationStatus.cancelled, ReservationStatus.expired},
+    ReservationStatus.seated: {ReservationStatus.completed, ReservationStatus.cancelled},
+    ReservationStatus.completed: set(),
+    ReservationStatus.expired: set(),
+    ReservationStatus.cancelled: set(),
+    ReservationStatus.rejected: set(),
+}
+
+
 class TableReservation(Base):
     __tablename__ = "table_reservations"
 
