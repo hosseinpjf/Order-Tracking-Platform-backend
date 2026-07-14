@@ -7,6 +7,7 @@ from app.services.jwt_bearer import get_payload
 from app.middleware.exception_handler import response_handler
 from app.models.table_reservation import TableReservation, ReservationStatus
 from app.models.table import Table
+from app.models.user import User
 from app.schemas.table_reservation import CreateReservation, OutReservation
 from app.config.settings import settings
 
@@ -50,9 +51,12 @@ def create_reservation(data: CreateReservation, payload = Depends(get_payload), 
         if conflict:
             raise HTTPException(status_code=409, detail="Table is not available at this time")
         
+        db_user = db.query(User).filter(User.id == payload["sub"]).first()
+        
         new_reservation = TableReservation(
             table_id = data.table_id,
             user_id = payload["sub"],
+            user_name = db_user.name,
             start_time = data.start_time,
             end_time = end_time,
             guests_count = data.guests_count,
@@ -74,3 +78,4 @@ def create_reservation(data: CreateReservation, payload = Depends(get_payload), 
     except Exception:
         db.rollback()
         raise HTTPException(status_code=500, detail="Reservation creation failed")
+

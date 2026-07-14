@@ -21,6 +21,7 @@ class TableReservation(Base):
     id = Column(String, primary_key=True, index=True, default=lambda: uuid.uuid4().hex)
     table_id = Column(String, ForeignKey("tables.id"), nullable=False)
     user_id = Column(String, ForeignKey("users.id"), nullable=False)
+    user_name = Column(String, nullable=False)
 
     start_time = Column(DateTime(timezone=True), nullable=False)
     end_time = Column(DateTime(timezone=True), nullable=False)
