@@ -1,17 +1,16 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from datetime import datetime, timezone, timedelta, time
+from datetime import datetime, timezone, time
 import math
 from app.db.session import get_db
 from app.services.jwt_bearer import get_payload
+from app.config.settings import settings
 from app.middleware.exception_handler import response_handler
 from app.models.table_reservation import TableReservation, ReservationStatus, ALLOWED_TRANSITIONS_RESERVATION
 from app.models.table import Table
 from app.models.user import User
-from app.schemas.table_reservation import CreateReservation, OutReservation, UpdateStatus
-from app.config.settings import settings
-
+from app.schemas.table_reservation import CreateReservation, OutReservation, UpdateStatus, UpdateReservation
 
 
 router = APIRouter(prefix="/table-reservation", tags=["Table Reservation"])
@@ -33,8 +32,8 @@ def create_reservation(data: CreateReservation, payload = Depends(get_payload), 
 
         end_time = data.start_time + settings.RESERVATION_DURATION
 
-        open_dt = datetime.combine(data.start_time.date(), settings.OPEN_TIME, tzinfo=timezone.utc)
-        close_dt = datetime.combine(data.start_time.date(), settings.CLOSE_TIME, tzinfo=timezone.utc)
+        open_dt = datetime.combine(data.start_time.date(), settings.OPEN_TIME).replace(tzinfo=timezone.utc)
+        close_dt = datetime.combine(data.start_time.date(), settings.CLOSE_TIME).replace(tzinfo=timezone.utc)
         if data.start_time < open_dt or end_time > close_dt:
             raise HTTPException(status_code=400, detail="Reservation is outside business hours")
 
@@ -48,7 +47,6 @@ def create_reservation(data: CreateReservation, payload = Depends(get_payload), 
             TableReservation.start_time < end_time,
             TableReservation.end_time > data.start_time
         ).first()
-
         if conflict:
             raise HTTPException(status_code=409, detail="Table is not available at this time")
         
@@ -142,7 +140,6 @@ def get_reservation(
             },
             status_code=200
         )
-
     except HTTPException as http_error:
         raise http_error
     except Exception:
@@ -182,3 +179,77 @@ def update_status(reservation_id: str, data: UpdateStatus, payload = Depends(get
     except Exception:
         db.rollback()
         raise HTTPException(status_code=500, detail="Reservation update failed")
+
+
+@router.patch("/{reservation_id}")
+def update_reservation(reservation_id: str, data: UpdateReservation, payload = Depends(get_payload), db: Session = Depends(get_db)):
+    try:
+        if data.table_id is None and data.guests_count is None and data.start_time is None:
+            raise HTTPException(status_code=400, detail="No fields provided for update")
+
+        db_reservation = db.query(TableReservation).filter(TableReservation.id == reservation_id).first()
+        if not db_reservation:
+            raise HTTPException(status_code=404, detail="Reservation not found")
+
+        if payload["role"] != "admin" and payload["sub"] != db_reservation.user_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        if db_reservation.status not in [ReservationStatus.pending]:
+            raise HTTPException(status_code=400, detail="Reservation cannot be modified in this status")
+        
+        new_table_id = data.table_id if data.table_id is not None else db_reservation.table_id
+        new_guests_count = data.guests_count if data.guests_count is not None else db_reservation.guests_count
+        new_start_time = data.start_time if data.start_time is not None else db_reservation.start_time
+        new_end_time = new_start_time + settings.RESERVATION_DURATION
+
+        db_table = db.query(Table).filter(Table.id == new_table_id).first()
+        if not db_table:
+            raise HTTPException(status_code=404, detail="Table not found")
+
+        if db_table.capacity < new_guests_count:
+            raise HTTPException(status_code=400, detail="Guests exceed table capacity")
+
+        now_time = datetime.now(timezone.utc)
+        if new_start_time <= now_time:
+            raise HTTPException(status_code=400, detail="Start time must be in the future")
+
+        open_dt = datetime.combine(new_start_time.date(), settings.OPEN_TIME).replace(tzinfo=timezone.utc)
+        close_dt = datetime.combine(new_start_time.date(), settings.CLOSE_TIME).replace(tzinfo=timezone.utc)
+        if new_start_time < open_dt or new_end_time > close_dt:
+            raise HTTPException(status_code=400, detail="Reservation is outside business hours")
+
+        conflict = db.query(TableReservation).filter(
+            TableReservation.table_id == new_table_id,
+            TableReservation.id != db_reservation.id,
+            TableReservation.status.in_([
+                ReservationStatus.pending,
+                ReservationStatus.confirmed,
+                ReservationStatus.seated
+            ]),
+            TableReservation.start_time < new_end_time,
+            TableReservation.end_time > new_start_time
+        ).first()
+        if conflict:
+            raise HTTPException(status_code=409, detail="Table is not available at this time")
+            
+        db_reservation.start_time = new_start_time
+        db_reservation.end_time = new_end_time
+        db_reservation.table_id = new_table_id
+        db_reservation.guests_count = new_guests_count
+
+        db.commit()
+        db.refresh(db_reservation)
+
+        return response_handler(
+            status=True,
+            message="Reservation update successful",
+            data=OutReservation.model_validate(db_reservation).model_dump(),
+            status_code=200
+        )
+    except HTTPException as http_error:
+        db.rollback()
+        raise http_error
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Reservation update failed")
+

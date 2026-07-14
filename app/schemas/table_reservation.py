@@ -10,6 +10,11 @@ class CreateReservation(BaseModel):
 class UpdateStatus(BaseModel):
     status: ReservationStatus
 
+class UpdateReservation(BaseModel):
+    table_id: str | None = None
+    start_time: datetime | None = None
+    guests_count: int | None = Field(None, gt=0)
+
 class OutReservation(BaseModel):
     id: str
     table_id: str
