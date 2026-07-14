@@ -10,7 +10,7 @@ from app.middleware.exception_handler import response_handler
 from app.models.table_reservation import TableReservation, ReservationStatus, ALLOWED_TRANSITIONS_RESERVATION
 from app.models.table import Table
 from app.models.user import User
-from app.schemas.table_reservation import CreateReservation, OutReservation, UpdateStatus, UpdateReservation
+from app.schemas.table_reservation import CreateReservation, OutReservation, UpdateStatus, UpdateReservation, OutFullReservation
 
 
 router = APIRouter(prefix="/table-reservation", tags=["Table Reservation"])
@@ -80,7 +80,7 @@ def create_reservation(data: CreateReservation, payload = Depends(get_payload), 
 
 
 @router.get("/")
-def get_reservation(
+def get_reservations(
     payload = Depends(get_payload),
     db: Session = Depends(get_db),
     page: int = Query(1, ge=1), 
@@ -138,6 +138,28 @@ def get_reservation(
                 "total": db_reservation_total,
                 "pages": math.ceil(db_reservation_total / limit)
             },
+            status_code=200
+        )
+    except HTTPException as http_error:
+        raise http_error
+    except Exception:
+        raise HTTPException(status_code=500, detail="Reservation fetch failed")
+
+
+@router.get("/{reservation_id}")
+def get_reservation(reservation_id: str, payload = Depends(get_payload), db: Session = Depends(get_db)):
+    try:
+        db_reservation = db.query(TableReservation).filter(TableReservation.id == reservation_id).first()
+        if not db_reservation:
+            raise HTTPException(status_code=404, detail="Reservation not found")
+
+        if payload["role"] != "admin" and payload["sub"] != db_reservation.user_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        return response_handler(
+            status=True,
+            message="Reservation found",
+            data=OutFullReservation.model_validate(db_reservation).model_dump(),
             status_code=200
         )
     except HTTPException as http_error:
