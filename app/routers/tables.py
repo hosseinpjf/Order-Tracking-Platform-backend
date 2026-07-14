@@ -5,7 +5,7 @@ from app.db.session import get_db
 from app.services.jwt_bearer import get_payload
 from app.middleware.exception_handler import response_handler
 from app.models.table import Table, TableStatus, TableTags
-from app.schemas.table import CreateTable, OutTable, UpdateTable
+from app.schemas.table import CreateTable, OutTable, UpdateTable, OutFullTable
 from app.utils.delete_file import delete_file
 
 
@@ -80,6 +80,28 @@ def get_tables(
         raise http_error
     except Exception:
         raise HTTPException(status_code=500, detail="Table get failed")
+
+
+@router.get("/{table_id}")
+def get_reservation(table_id: str, payload = Depends(get_payload), db: Session = Depends(get_db)):
+    try:
+        if payload["role"] != "admin":
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        db_table = db.query(Table).filter(Table.id == table_id).first()
+        if not db_table:
+            raise HTTPException(status_code=404, detail="Table not found")
+
+        return response_handler(
+            status=True,
+            message="Table found",
+            data=OutFullTable.model_validate(db_table).model_dump(),
+            status_code=200
+        )
+    except HTTPException as http_error:
+        raise http_error
+    except Exception:
+        raise HTTPException(status_code=500, detail="Table fetch failed")
 
 
 @router.patch("/{table_id}")
