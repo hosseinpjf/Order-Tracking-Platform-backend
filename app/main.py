@@ -1,8 +1,12 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.exceptions import RequestValidationError
 from fastapi.staticfiles import StaticFiles
+import asyncio
+
 from .db.database import engine
 from .db.base import Base
+from .db.session import SessionLocal
+from .config.settings import settings
 from .middleware.exception_handler import http_exception_handler, general_exception_handler, validation_exception_handler
 from .middleware.cors import setup_cors
 
@@ -14,6 +18,8 @@ from .routers.categories import router as router_categories
 from .routers.orders import router as router_orders
 from .routers.tables import router as router_tables
 from .routers.table_reservations import router as router_table_reservations
+
+from .jobs.table_reservation import auto_update_reservations
 
 
 app = FastAPI()
@@ -36,3 +42,19 @@ app.add_exception_handler(Exception, general_exception_handler)
 app.add_exception_handler(RequestValidationError, validation_exception_handler)
 
 app.mount("/media", StaticFiles(directory="media"), name="media")
+
+async def reservation_scheduler():
+    while True:
+        try:
+            db = SessionLocal()
+            auto_update_reservations(db)
+        except Exception as e:
+            print("Scheduler error:", e)
+        finally:
+            db.close()
+
+        await asyncio.sleep(settings.JOB_INTERVAL_SECONDS)
+
+@app.on_event("startup")
+async def start_scheduler():
+    asyncio.create_task(reservation_scheduler())

@@ -18,6 +18,8 @@ class Settings(BaseSettings):
 
     RESERVATION_DURATION: timedelta = timedelta(minutes=30)
 
+    JOB_INTERVAL_SECONDS: int = 60
+
     class Config:
         env_file = ".env"
 
