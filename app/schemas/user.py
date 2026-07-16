@@ -36,4 +36,13 @@ class OutUser(BaseModel):
     address: str
     role: UserRole
     created_at: datetime
+
+class OutFullUser(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    name: str
+    phone: str
+    address: str
+    role: UserRole
+    created_at: datetime
     devices: list[OutDevice]

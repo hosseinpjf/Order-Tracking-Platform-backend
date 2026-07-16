@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import or_
 from datetime import datetime, timezone
 import math
-from app.schemas.user import RegisterUser, LoginUser, ChangeRole, RefreshToken, OutUser
+from app.schemas.user import RegisterUser, LoginUser, ChangeRole, RefreshToken, OutUser, OutFullUser
 from app.schemas.device_tracking import DeviceData
 from app.db.session import get_db
 from app.models.user import User, UserRole
@@ -218,7 +218,7 @@ def get_me(payload = Depends(get_payload), db: Session = Depends(get_db)):
         return response_handler(
             status=True,
             message="User found",
-            data=OutUser.model_validate(db_user).model_dump(),
+            data=OutFullUser.model_validate(db_user).model_dump(),
             status_code=200
         )
     except HTTPException as http_error:
@@ -272,6 +272,28 @@ def get_users(
         raise HTTPException(status_code=500, detail="Users get failed")
 
 
+@router.get("/{user_id}")
+def get_user(user_id: str, payload = Depends(get_payload), db: Session = Depends(get_db)):
+    try:
+        if payload["role"] != "admin":
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        db_user = db.query(User).filter(User.id == user_id).first()
+        if not db_user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        return response_handler(
+            status=True,
+            message="User found",
+            data=OutFullUser.model_validate(db_user).model_dump(),
+            status_code=200
+        )
+    except HTTPException as http_error:
+        raise http_error
+    except Exception:
+        raise HTTPException(status_code=500, detail="Users get failed")
+
+
 @router.patch("/change-role")
 def change_role(data: ChangeRole, payload = Depends(get_payload), db: Session = Depends(get_db)):
     try:
@@ -291,7 +313,6 @@ def change_role(data: ChangeRole, payload = Depends(get_payload), db: Session = 
 
         db_user.role = data.role
 
-        # db.commit()
         db.flush()
         db.refresh(db_user)
 
