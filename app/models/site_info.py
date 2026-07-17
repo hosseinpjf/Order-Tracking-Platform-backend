@@ -5,7 +5,7 @@ import enum
 from app.db.base import Base
 
 
-class SiteInfoSetting(enum.Enum):
+class SiteInfoSettings(enum.Enum):
     # Order Settings
     accept_order = "accept_order"                                   # آیا سیستم سفارش را قبول کند یا نه
     allow_online_payment = "allow_online_payment"                   # فعال/غیرفعال کردن پرداخت آنلاین
@@ -33,6 +33,14 @@ class SiteInfoSetting(enum.Enum):
     show_working_hours = "show_working_hours"                       # نمایش ساعات کاری
     maintenance_mode = "maintenance_mode"                           # حالت تعمیرات
 
+class DaysWeek(enum.Enum):
+    Saturday = "Saturday"
+    Sunday = "Sunday"
+    Monday = "Monday"
+    Tuesday = "Tuesday"
+    Wednesday = "Wednesday"
+    Thursday = "Thursday"
+    Friday = "Friday"
 
 class SiteInfo(Base):
     __tablename__ = "site_info"
@@ -56,8 +64,6 @@ class SiteInfo(Base):
     settings = Column(MutableList.as_mutable(JSON), default=list)
 
     table_reservation_time = Column(Integer, default=30)
-
-    seo = Column(JSON, MutableDict.as_mutable(JSON), default=dict)
 
     hero = Column(JSON, MutableDict.as_mutable(JSON), default=dict)
     footer = Column(JSON, MutableDict.as_mutable(JSON), default=dict)
