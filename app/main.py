@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.exceptions import RequestValidationError
 from fastapi.staticfiles import StaticFiles
+from contextlib import asynccontextmanager
 import asyncio
 
 from .db.database import engine
@@ -20,13 +21,45 @@ from .routers.tables import router as router_tables
 from .routers.table_reservations import router as router_table_reservations
 from .routers.site_info import router as router_site_info
 
+from .core.init_site_info import init_site_info
 from .jobs.table_reservation import auto_update_reservations
 from .jobs.order_status_history import auto_update_order_status
 
 
-app = FastAPI()
-
 Base.metadata.create_all(bind=engine)
+
+async def reservation_scheduler():
+    while True:
+        try:
+            db = SessionLocal()
+            auto_update_reservations(db)
+            auto_update_order_status(db)
+        except Exception as e:
+            print("Scheduler error:", e)
+        finally:
+            db.close()
+
+        await asyncio.sleep(settings.JOB_INTERVAL_SECONDS)
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    db = SessionLocal()
+    try:
+        init_site_info(db)
+    finally:
+        db.close()
+
+    task = asyncio.create_task(reservation_scheduler())
+
+    yield
+
+    task.cancel()
+    try:
+        await task
+    except asyncio.CancelledError:
+        pass
+
+app = FastAPI(lifespan=lifespan)
 
 setup_cors(app)
 
@@ -46,19 +79,3 @@ app.add_exception_handler(RequestValidationError, validation_exception_handler)
 
 app.mount("/media", StaticFiles(directory="media"), name="media")
 
-async def reservation_scheduler():
-    while True:
-        try:
-            db = SessionLocal()
-            auto_update_reservations(db)
-            auto_update_order_status(db)
-        except Exception as e:
-            print("Scheduler error:", e)
-        finally:
-            db.close()
-
-        await asyncio.sleep(settings.JOB_INTERVAL_SECONDS)
-
-@app.on_event("startup")
-async def start_scheduler():
-    asyncio.create_task(reservation_scheduler())
