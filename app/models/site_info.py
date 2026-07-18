@@ -34,24 +34,24 @@ class SiteInfoSettings(enum.Enum):
     maintenance_mode = "maintenance_mode"                           # حالت تعمیرات
 
 class DaysWeek(enum.Enum):
-    Saturday = "Saturday"
-    Sunday = "Sunday"
-    Monday = "Monday"
-    Tuesday = "Tuesday"
-    Wednesday = "Wednesday"
-    Thursday = "Thursday"
-    Friday = "Friday"
+    saturday = "saturday"
+    sunday = "sunday"
+    monday = "monday"
+    tuesday = "tuesday"
+    wednesday = "wednesday"
+    thursday = "thursday"
+    friday = "friday"
 
 class SiteInfo(Base):
     __tablename__ = "site_info"
 
     id = Column(String, primary_key=True, default="1")
 
-    name = Column(String(50), nullable=False)
-    slogan = Column(MutableList.as_mutable(JSON), default=list)
+    name = Column(String(50), nullable=True)
+    slogans = Column(MutableList.as_mutable(JSON), default=list)
     logo = Column(String, nullable=True)
     
-    address = Column(String, nullable=False)
+    address = Column(String, nullable=True)
     location = Column(MutableDict.as_mutable(JSON), default=dict)
 
     phones = Column(MutableList.as_mutable(JSON), default=list)
