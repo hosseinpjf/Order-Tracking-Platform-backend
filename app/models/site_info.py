@@ -31,7 +31,6 @@ class SiteInfoSettings(enum.Enum):
     site_open = "site_open"                                         # آیا سایت باز است یا بسته
     show_contact_info = "show_contact_info"                         # نمایش/عدم نمایش اطلاعات تماس
     show_working_hours = "show_working_hours"                       # نمایش ساعات کاری
-    maintenance_mode = "maintenance_mode"                           # حالت تعمیرات
 
 class DaysWeek(enum.Enum):
     saturday = "saturday"

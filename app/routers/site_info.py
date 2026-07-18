@@ -26,13 +26,13 @@ def create_info(data: CreateSiteInfo, payload = Depends(get_payload), db: Sessio
             db.add(db_site_info)
             db.flush()
 
-        update_data = data.model_dump(
+        create_data = data.model_dump(
             mode="json",
             exclude_unset=True,
             exclude_none=True
         )
 
-        for key, value in update_data.items():
+        for key, value in create_data.items():
 
             if key in FIELDS_WITH_ID:
                 prev_data = list(getattr(db_site_info, key) or [])
@@ -77,7 +77,7 @@ def create_info(data: CreateSiteInfo, payload = Depends(get_payload), db: Sessio
 
         return response_handler(
             status=True,
-            message="Data updated successfully",
+            message="Data created successfully",
             data={},
             status_code=200
         )
@@ -86,5 +86,5 @@ def create_info(data: CreateSiteInfo, payload = Depends(get_payload), db: Sessio
         raise http_error
     except Exception:
         db.rollback()
-        raise HTTPException(status_code=500, detail="Site info update failed")
+        raise HTTPException(status_code=500, detail="Site info create failed")
 
