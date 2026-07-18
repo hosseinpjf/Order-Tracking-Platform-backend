@@ -32,11 +32,11 @@ class CreateLink(BaseModel):
     order: int = Field(..., gt=0)
     is_visible: bool = True
 
-class CreateWorkingHours(BaseModel):
-    day: DaysWeek
-    open_time: time
-    close_time: time
-    is_closed: bool = False
+# class CreateWorkingHours(BaseModel):
+#     day: DaysWeek
+#     open_time: time
+#     close_time: time
+#     is_closed: bool = False
 
 # class CreateSetting(BaseModel):
 #     capability: SiteInfoSettings
@@ -56,3 +56,4 @@ class CreateFooter(CreateSection): pass
 class CreateAboutUs(CreateSection): pass
 
 class CreateContactUs(CreateSection): pass
+

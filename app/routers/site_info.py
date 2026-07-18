@@ -42,9 +42,6 @@ def create_info(data: CreateSiteInfo, payload = Depends(get_payload), db: Sessio
 
                     if key in ("slogans", "phones", "links"):
                         item.setdefault("is_visible", True)
-
-                    if key == "working_hours":
-                        item.setdefault("is_closed", False)
                 
                     prev_data.append(item)
 

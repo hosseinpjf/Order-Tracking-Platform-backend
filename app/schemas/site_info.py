@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 from typing import List
-from app.schemas.base_site_info import CreateSlogans, CreateLocation, CreatePhone, CreateLink, CreateWorkingHours, CreateHero, CreateFooter, CreateAboutUs, CreateContactUs
+from app.schemas.base_site_info import CreateSlogans, CreateLocation, CreatePhone, CreateLink, CreateHero, CreateFooter, CreateAboutUs, CreateContactUs
 
 class CreateSiteInfo(BaseModel):
     name: str | None = Field(None, min_length=1)
@@ -14,7 +14,7 @@ class CreateSiteInfo(BaseModel):
 
     links: List[CreateLink] | None = None
 
-    working_hours: List[CreateWorkingHours] | None = None
+    # working_hours: List[CreateWorkingHours] | None = None
 
     today_suggestions: List[str] | None = None
 
