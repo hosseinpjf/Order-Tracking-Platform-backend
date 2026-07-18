@@ -18,6 +18,7 @@ from .routers.categories import router as router_categories
 from .routers.orders import router as router_orders
 from .routers.tables import router as router_tables
 from .routers.table_reservations import router as router_table_reservations
+from .routers.site_info import router as router_site_info
 
 from .jobs.table_reservation import auto_update_reservations
 from .jobs.order_status_history import auto_update_order_status
@@ -37,6 +38,7 @@ app.include_router(router_categories)
 app.include_router(router_orders)
 app.include_router(router_tables)
 app.include_router(router_table_reservations)
+app.include_router(router_site_info)
 
 app.add_exception_handler(HTTPException, http_exception_handler)
 app.add_exception_handler(Exception, general_exception_handler)
