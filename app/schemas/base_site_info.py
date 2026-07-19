@@ -4,7 +4,7 @@ from typing import List
 
 
 class CreateImages(BaseModel):
-    url: str = Field(..., pattern=r"^/media/uploads/[A-Za-z0-9_\-./]+\.(jpg|jpeg|png|webp)$")
+    url: str = Field(..., pattern=r"^/media/uploads/site_info/[A-Za-z0-9_\-./]+\.(jpg|jpeg|png|webp)$")
     position: str = Field(..., min_length=1)
 
 class CreateButton(BaseModel):
@@ -30,7 +30,7 @@ class CreatePhone(BaseModel):
 class CreateLink(BaseModel):
     title: str = Field(..., min_length=1)
     url: str = Field(..., min_length=1)
-    icon: str = Field(..., min_length=1)
+    icon: str = Field(..., pattern=r"^/media/uploads/site_info/[A-Za-z0-9_\-./]+\.(jpg|jpeg|png|webp)$")
     order: int = Field(..., gt=0)
     is_visible: bool = True
 
@@ -59,7 +59,7 @@ class CreateContactUs(CreateSection): pass
 
 class UpdateImages(BaseModel):
     id: str
-    url: str | None = Field(None, pattern=r"^/media/uploads/[A-Za-z0-9_\-./]+\.(jpg|jpeg|png|webp)$")
+    url: str | None = Field(None, pattern=r"^/media/uploads/site_info/[A-Za-z0-9_\-./]+\.(jpg|jpeg|png|webp)$")
     position: str | None = Field(None, min_length=1)
 
 class UpdateButton(BaseModel):
@@ -89,7 +89,7 @@ class UpdateLink(BaseModel):
     id: str
     title: str | None = Field(None, min_length=1)
     url: str | None = Field(None, min_length=1)
-    icon: str | None = Field(None, min_length=1)
+    icon: str | None = Field(None, pattern=r"^/media/uploads/site_info/[A-Za-z0-9_\-./]+\.(jpg|jpeg|png|webp)$")
     order: int | None = Field(None, gt=0)
     is_visible: bool | None = None
 

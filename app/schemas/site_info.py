@@ -5,7 +5,7 @@ from app.schemas.base_site_info import CreateSlogans, CreateLocation, CreatePhon
 class CreateSiteInfo(BaseModel):
     name: str | None = Field(None, min_length=1)
     slogans: List[CreateSlogans] | None = None
-    logo: str | None = Field(None, pattern=r"^/media/uploads/[A-Za-z0-9_\-./]+\.(jpg|jpeg|png|webp)$")
+    logo: str | None = Field(None, pattern=r"^/media/uploads/site_info/[A-Za-z0-9_\-./]+\.(jpg|jpeg|png|webp)$")
 
     address: str | None = Field(None, min_length=1)
     location: CreateLocation | None = None
@@ -28,7 +28,7 @@ class CreateSiteInfo(BaseModel):
 class UpdateSiteInfo(BaseModel):
     name: str | None = Field(None, min_length=1)
     slogans: List[UpdateSlogans] | None = None
-    logo: str | None = Field(None, pattern=r"^/media/uploads/[A-Za-z0-9_\-./]+\.(jpg|jpeg|png|webp)$")
+    logo: str | None = Field(None, pattern=r"^/media/uploads/site_info/[A-Za-z0-9_\-./]+\.(jpg|jpeg|png|webp)$")
 
     address: str | None = Field(None, min_length=1)
     location: UpdateLocation | None = None
