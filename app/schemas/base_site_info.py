@@ -2,7 +2,7 @@ from pydantic import BaseModel, Field
 from datetime import time
 from typing import List
 
-
+# ---------------------------------------<< Create >>---------------------------------------
 class CreateImages(BaseModel):
     url: str = Field(..., pattern=r"^/media/uploads/site_info/[A-Za-z0-9_\-./]+\.(jpg|jpeg|png|webp)$")
     position: str = Field(..., min_length=1)
@@ -54,9 +54,7 @@ class CreateAboutUs(CreateSection): pass
 
 class CreateContactUs(CreateSection): pass
 
-
-
-
+# ---------------------------------------<< Update >>---------------------------------------
 class UpdateImages(BaseModel):
     id: str
     url: str | None = Field(None, pattern=r"^/media/uploads/site_info/[A-Za-z0-9_\-./]+\.(jpg|jpeg|png|webp)$")
@@ -110,9 +108,9 @@ class UpdateSetting(BaseModel):
     enabled: bool | None = None
 
 class UpdateSection(BaseModel):
-    title: str | None = Field(None, min_length=1)
-    subtitle: str | None = Field(None, min_length=1)
-    content: str | None = Field(None, min_length=1)
+    title: str | None = None
+    subtitle: str | None = None
+    content: str | None = None
     images: List[UpdateImages] | None = None
     buttons: List[UpdateButton] | None = None
 
@@ -123,3 +121,31 @@ class UpdateFooter(UpdateSection): pass
 class UpdateAboutUs(UpdateSection): pass
 
 class UpdateContactUs(UpdateSection): pass
+
+# ---------------------------------------<< Delete >>---------------------------------------
+class DeleteId(BaseModel):
+    id: str
+
+class DeleteImages(DeleteId): pass
+
+class DeleteButton(DeleteId): pass
+
+class DeleteSlogans(DeleteId): pass
+
+class DeletePhone(DeleteId): pass
+
+class DeleteLink(DeleteId): pass
+
+class DeleteTodaySuggestions(DeleteId): pass
+
+class DeleteSection(BaseModel):
+    images: List[DeleteImages] | None = None
+    buttons: List[DeleteButton] | None = None
+
+class DeleteHero(DeleteSection): pass
+
+class DeleteFooter(DeleteSection): pass
+
+class DeleteAboutUs(DeleteSection): pass
+
+class DeleteContactUs(DeleteSection): pass

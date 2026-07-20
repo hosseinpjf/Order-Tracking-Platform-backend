@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 from typing import List
-from app.schemas.base_site_info import CreateSlogans, CreateLocation, CreatePhone, CreateLink, CreateTodaySuggestions, CreateHero, CreateFooter, CreateAboutUs, CreateContactUs, UpdateSlogans, UpdateLocation, UpdatePhone, UpdateLink, UpdateTodaySuggestions, UpdateWorkingHours, UpdateSetting, UpdateHero, UpdateFooter, UpdateAboutUs, UpdateContactUs
+from app.schemas.base_site_info import CreateSlogans, CreateLocation, CreatePhone, CreateLink, CreateTodaySuggestions, CreateHero, CreateFooter, CreateAboutUs, CreateContactUs, UpdateSlogans, UpdateLocation, UpdatePhone, UpdateLink, UpdateTodaySuggestions, UpdateWorkingHours, UpdateSetting, UpdateHero, UpdateFooter, UpdateAboutUs, UpdateContactUs, DeleteSlogans, DeletePhone, DeleteLink, DeleteTodaySuggestions, DeleteHero, DeleteFooter, DeleteAboutUs, DeleteContactUs
 
 class CreateSiteInfo(BaseModel):
     name: str | None = Field(None, min_length=1)
@@ -49,3 +49,24 @@ class UpdateSiteInfo(BaseModel):
     footer: UpdateFooter | None = None
     about_us: UpdateAboutUs | None = None
     contact_us: UpdateContactUs | None = None
+
+
+
+class DeleteSiteInfo(BaseModel):
+    name: bool | None = None
+    slogans: List[DeleteSlogans] | None = None
+    logo: bool | None = None
+
+    address: bool | None = None
+    location: bool | None = None
+
+    phones: List[DeletePhone] | None = None
+
+    links: List[DeleteLink] | None = None
+
+    today_suggestions: List[DeleteTodaySuggestions] | None = None
+
+    hero: DeleteHero | None = None
+    footer: DeleteFooter | None = None
+    about_us: DeleteAboutUs | None = None
+    contact_us: DeleteContactUs | None = None

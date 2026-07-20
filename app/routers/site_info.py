@@ -7,8 +7,8 @@ from app.db.session import get_db
 from app.services.jwt_bearer import get_payload, get_optional_payload
 from app.middleware.exception_handler import response_handler
 from app.models.site_info import SiteInfo, SiteInfoPart
-from app.schemas.site_info import CreateSiteInfo, UpdateSiteInfo
-from app.utils.site_info_update import update_list, update_section
+from app.schemas.site_info import CreateSiteInfo, UpdateSiteInfo, DeleteSiteInfo
+from app.utils.site_info_helper import update_list, update_section, delete_list
 from app.utils.delete_file import delete_file, delete_files
 
 
@@ -216,3 +216,77 @@ def get_info(
     except Exception:
         raise HTTPException(status_code=500, detail="Site info get failed")
 
+
+@router.delete("/")
+def delete_info(data: DeleteSiteInfo, payload = Depends(get_payload), db: Session = Depends(get_db)):
+    try:
+        if payload["role"] != "admin":
+            raise HTTPException(status_code=403, detail="Access denied")
+
+        db_site_info = db.query(SiteInfo).first()
+        if not db_site_info:
+            raise HTTPException(status_code=404, detail="Site info not found")
+
+        delete_data = data.model_dump(
+            mode="json",
+            exclude_unset=True,
+            exclude_none=True,
+        )
+
+        old_images = set()
+
+        for key, value in delete_data.items():
+
+            if key in FIELDS_WITH_SIMPLE_DATA:
+                if value is True:
+
+                    if key == "logo" and db_site_info.logo:
+                        old_images.add(db_site_info.logo)
+
+                    if key == "location": setattr(db_site_info, key, {})
+                    else: setattr(db_site_info, key, None)
+
+                continue
+
+            if key in FIELDS_WITH_LIST_DATA:
+                current_value = list(getattr(db_site_info, key) or [])
+
+                is_image = key == "links"
+                current_value = delete_list(is_image, current_value, value, old_images)
+
+                setattr(db_site_info, key, current_value)
+                flag_modified(db_site_info, key)
+                continue
+
+            if key in FIELDS_WITH_DICT_DATA:
+                current_section = dict(getattr(db_site_info, key) or {})
+
+                for section_key in current_section:
+                    if section_key in ("images", "buttons"):
+                        current_items = current_section.get(section_key, [])
+
+                        is_image = section_key == "images"
+                        current_items = delete_list(is_image, current_items, value.get(section_key, []), old_images)
+                        current_section[section_key] = current_items
+
+                setattr(db_site_info, key, current_section)
+                flag_modified(db_site_info, key)
+                continue
+
+        db.commit()
+
+        if old_images:
+            delete_files(list(old_images))
+
+        return response_handler(
+            status=True,
+            message="Data deleted successfully",
+            data=None,
+            status_code=200
+        )
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Site info delete failed")

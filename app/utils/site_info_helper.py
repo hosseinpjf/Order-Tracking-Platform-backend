@@ -68,3 +68,25 @@ def update_section(old_section: dict | None, new_section, old_images):
 
     return section
 
+
+def delete_list(is_image, current, value, old_images):
+    ids = {item["id"] for item in value}
+    current_ids = {item["id"] for item in current}
+
+    missing_ids = ids - current_ids
+    if missing_ids:
+        raise HTTPException(status_code=404, detail=f"Item(s) not found: {', '.join(sorted(missing_ids))}")
+
+    if is_image:
+        for item in current:
+            if item.get("id") in ids:
+                image = item.get("icon") or item.get("url")
+                if image:
+                    old_images.add(image)
+
+    return [
+        item
+        for item in current
+        if item["id"] not in ids
+    ]
+
