@@ -78,11 +78,12 @@ def delete_list(is_image, current, value, old_images):
         raise HTTPException(status_code=404, detail=f"Item(s) not found: {', '.join(sorted(missing_ids))}")
 
     if is_image:
-        for item in current:
-            if item.get("id") in ids:
-                image = item.get("icon") or item.get("url")
-                if image:
-                    old_images.add(image)
+        old_images.update(
+            image
+            for item in current
+            if item.get("id") in ids
+            if (image := item.get("icon") or item.get("url"))
+        )
 
     return [
         item
