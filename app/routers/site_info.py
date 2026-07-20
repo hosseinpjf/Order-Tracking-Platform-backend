@@ -201,6 +201,10 @@ def get_info(
                         section["buttons"] = [button for button in section["buttons"] if button.get("is_visible", True)]
                 data_output[part.value] = section
 
+        if is_admin:
+            data_output["updated_at"] = getattr(db_site_info, "updated_at")
+            data_output["created_at"] = getattr(db_site_info, "created_at")
+
         return response_handler(
             status=True,
             message="Site info get successfully",
