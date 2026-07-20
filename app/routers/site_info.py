@@ -9,6 +9,7 @@ from app.middleware.exception_handler import response_handler
 from app.models.site_info import SiteInfo, SiteInfoPart
 from app.schemas.site_info import CreateSiteInfo, UpdateSiteInfo
 from app.utils.site_info_update import update_list, update_section
+from app.utils.delete_file import delete_file, delete_files
 
 
 router = APIRouter(prefix="/info", tags=["Site Info"])
@@ -35,9 +36,14 @@ def create_info(data: CreateSiteInfo, payload = Depends(get_payload), db: Sessio
             exclude_none=True
         )
 
+        old_image = None
+
         for key, value in create_data.items():
 
             if key in FIELDS_WITH_SIMPLE_DATA:
+                if key == "logo" and value and db_site_info.logo and value != db_site_info.logo:
+                    old_image = db_site_info.logo
+                    
                 setattr(db_site_info, key, value)
                 continue
 
@@ -76,6 +82,9 @@ def create_info(data: CreateSiteInfo, payload = Depends(get_payload), db: Sessio
         db.commit()
         db.refresh(db_site_info)
 
+        if old_image:
+            delete_file(old_image)
+
         return response_handler(
             status=True,
             message="Data created successfully",
@@ -106,26 +115,38 @@ def update_info(data: UpdateSiteInfo, payload = Depends(get_payload), db: Sessio
             exclude_none=True,
         )
 
+        old_images = set()
+
         for key, value in update_data.items():
 
             if key in FIELDS_WITH_SIMPLE_DATA:
+                if key == "logo" and value and db_site_info.logo and value != db_site_info.logo:
+                    old_images.add(db_site_info.logo)
+
                 setattr(db_site_info, key, value)
                 continue
 
             if key in FIELDS_WITH_LIST_DATA:
                 current_value = getattr(db_site_info, key) or []
-                setattr(db_site_info, key, update_list(current_value, value))
+
+                is_image = False
+                if key == "links": is_image = True
+
+                setattr(db_site_info, key, update_list(is_image, current_value, value, old_images))
                 flag_modified(db_site_info, key)
                 continue
 
             if key in FIELDS_WITH_DICT_DATA:
                 current_section = getattr(db_site_info, key) or {}
-                setattr(db_site_info, key, update_section(current_section, value))
+                setattr(db_site_info, key, update_section(current_section, value, old_images))
                 flag_modified(db_site_info, key)
                 continue
 
         db.commit()
         db.refresh(db_site_info)
+
+        if old_images:
+            delete_files(list(old_images))
 
         return response_handler(
             status=True,

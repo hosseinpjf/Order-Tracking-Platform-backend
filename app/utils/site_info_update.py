@@ -2,7 +2,7 @@ from fastapi import HTTPException
 
 
 
-def update_list(old_list, new_list):
+def update_list(is_image, old_list, new_list, old_images):
     old_list = old_list or []
     new_list = new_list or []
 
@@ -32,12 +32,16 @@ def update_list(old_list, new_list):
 
             if key == "id": continue
 
+            old_value = old_map[item_id].get(key)
+            if is_image and key in ("icon", "url") and value and old_value and old_value != value:
+                old_images.add(old_value)
+
             if value is not None: old_map[item_id][key] = value
 
     return list(old_map.values())
 
 
-def update_section(old_section: dict | None, new_section):
+def update_section(old_section: dict | None, new_section, old_images):
     old_section = old_section or {}
 
     if isinstance(new_section, dict):
@@ -54,10 +58,10 @@ def update_section(old_section: dict | None, new_section):
     for key, value in data.items():
 
         if key == "images":
-            section["images"] = update_list(section.get("images", []), value)
+            section["images"] = update_list(True, section.get("images", []), value, old_images)
 
         elif key == "buttons":
-            section["buttons"] = update_list(section.get("buttons", []), value)
+            section["buttons"] = update_list(False, section.get("buttons", []), value, old_images)
 
         else:
             section[key] = value

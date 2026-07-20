@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     OPEN_TIME: time = time(7, 0)
     CLOSE_TIME: time = time(23, 0)
 
-    ALLOWED_FOLDERS: list = ["products", "tables", "categories"]
+    ALLOWED_FOLDERS: list = ["products", "tables", "categories", "site_info"]
     ALLOWED_EXTENSIONS: list = ["jpg", "jpeg", "png", "webp"]
     ALLOWED_CONTENT_TYPES: list = ["image/jpg", "image/jpeg", "image/png", "image/webp"]
     MAX_FILE_SIZE: int = 5 * 1024 * 1024  # 5MB
