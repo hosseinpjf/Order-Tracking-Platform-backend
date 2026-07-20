@@ -1,17 +1,17 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from datetime import datetime, timezone, time
+from datetime import datetime, timezone, time, timedelta
 import math
 from app.db.session import get_db
 from app.services.jwt_bearer import get_payload
-from app.config.settings import settings
 from app.middleware.exception_handler import response_handler
 from app.models.table_reservation import TableReservation, ReservationStatus, ALLOWED_TRANSITIONS_RESERVATION
 from app.models.table import Table
 from app.models.user import User
 from app.schemas.table_reservation import CreateReservation, OutReservation, UpdateStatus, UpdateReservation
 from app.schemas.shared_table import OutFullReservation
+from app.utils.get_site_info import get_working_hours, get_site_info
 
 
 router = APIRouter(prefix="/table-reservation", tags=["Table Reservation"])
@@ -30,11 +30,21 @@ def create_reservation(data: CreateReservation, payload = Depends(get_payload), 
         now_time = datetime.now(timezone.utc)
         if data.start_time <= now_time:
             raise HTTPException(status_code=400, detail="Start time must be in the future")
+        
+        db_site_info = get_site_info(db)
+        table_reservation_time = db_site_info.table_reservation_time
+        if not table_reservation_time:
+            raise HTTPException(status_code=404, detail="Table reservation time not found")
+        
+        reservation_duration = timedelta(minutes=int(table_reservation_time))
+        end_time = data.start_time + reservation_duration
 
-        end_time = data.start_time + settings.RESERVATION_DURATION
+        workday = get_working_hours(db)
+        open_time = workday["open_time"]
+        close_time = workday["close_time"]
 
-        open_dt = datetime.combine(data.start_time.date(), settings.OPEN_TIME).replace(tzinfo=timezone.utc)
-        close_dt = datetime.combine(data.start_time.date(), settings.CLOSE_TIME).replace(tzinfo=timezone.utc)
+        open_dt = datetime.combine(data.start_time.date(), open_time).replace(tzinfo=timezone.utc)
+        close_dt = datetime.combine(data.start_time.date(), close_time).replace(tzinfo=timezone.utc)
         if data.start_time < open_dt or end_time > close_dt:
             raise HTTPException(status_code=400, detail="Reservation is outside business hours")
 
@@ -221,10 +231,17 @@ def update_reservation(reservation_id: str, data: UpdateReservation, payload = D
         if db_reservation.status not in [ReservationStatus.pending]:
             raise HTTPException(status_code=400, detail="Reservation cannot be modified in this status")
         
+        db_site_info = get_site_info(db)
+        table_reservation_time = db_site_info.table_reservation_time
+        if not table_reservation_time:
+            raise HTTPException(status_code=404, detail="Table reservation time not found")
+        
+        reservation_duration = timedelta(minutes=int(table_reservation_time))
+        
         new_table_id = data.table_id if data.table_id is not None else db_reservation.table_id
         new_guests_count = data.guests_count if data.guests_count is not None else db_reservation.guests_count
         new_start_time = data.start_time if data.start_time is not None else db_reservation.start_time
-        new_end_time = new_start_time + settings.RESERVATION_DURATION
+        new_end_time = new_start_time + reservation_duration
 
         db_table = db.query(Table).filter(Table.id == new_table_id).first()
         if not db_table:
@@ -237,8 +254,12 @@ def update_reservation(reservation_id: str, data: UpdateReservation, payload = D
         if new_start_time <= now_time:
             raise HTTPException(status_code=400, detail="Start time must be in the future")
 
-        open_dt = datetime.combine(new_start_time.date(), settings.OPEN_TIME).replace(tzinfo=timezone.utc)
-        close_dt = datetime.combine(new_start_time.date(), settings.CLOSE_TIME).replace(tzinfo=timezone.utc)
+        workday = get_working_hours(db)
+        open_time = workday["open_time"]
+        close_time = workday["close_time"]
+
+        open_dt = datetime.combine(new_start_time.date(), open_time).replace(tzinfo=timezone.utc)
+        close_dt = datetime.combine(new_start_time.date(), close_time).replace(tzinfo=timezone.utc)
         if new_start_time < open_dt or new_end_time > close_dt:
             raise HTTPException(status_code=400, detail="Reservation is outside business hours")
 
