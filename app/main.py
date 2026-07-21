@@ -10,6 +10,7 @@ from .db.session import SessionLocal
 from .config.settings import settings
 from .middleware.exception_handler import http_exception_handler, general_exception_handler, validation_exception_handler
 from .middleware.cors import setup_cors
+from .utils.get_site_info import get_settings
 
 from .routers.users import router as router_users
 from .routers.devices_tracking import router as router_devices_tracking
@@ -25,17 +26,21 @@ from .core.init_site_info import init_settings, init_working_hours
 from .jobs.table_reservation import auto_update_reservations
 from .jobs.order_status_history import auto_update_order_status
 
-
 Base.metadata.create_all(bind=engine)
 
 async def reservation_scheduler():
     while True:
+        db = SessionLocal()
         try:
-            db = SessionLocal()
-            auto_update_reservations(db)
-            auto_update_order_status(db)
-        except Exception as e:
-            print("Scheduler error:", e)
+            db_settings = get_settings(db, ["auto_expire_reservations", "auto_complete_reservations", "auto_complete_preparing"])
+
+            if db_settings["auto_expire_reservations"] or db_settings["auto_complete_reservations"]:
+                auto_update_reservations(db, db_settings)
+            if db_settings["auto_complete_preparing"]:
+                auto_update_order_status(db)
+
+        except Exception:
+            print("Scheduler error")
         finally:
             db.close()
 
