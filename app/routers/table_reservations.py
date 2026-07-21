@@ -7,7 +7,7 @@ from app.db.session import get_db
 from app.services.jwt_bearer import get_payload
 from app.middleware.exception_handler import response_handler
 from app.models.table_reservation import TableReservation, ReservationStatus, ALLOWED_TRANSITIONS_RESERVATION
-from app.models.table import Table
+from app.models.table import Table, TableStatus
 from app.models.user import User
 from app.schemas.table_reservation import CreateReservation, OutReservation, UpdateStatus, UpdateReservation
 from app.schemas.shared_table import OutFullReservation
@@ -28,6 +28,9 @@ def create_reservation(data: CreateReservation, payload = Depends(get_payload), 
         db_table = db.query(Table).filter(Table.id == data.table_id).with_for_update().first()
         if not db_table:
             raise HTTPException(status_code=404, detail="Table not found")
+        
+        if db_table.status != TableStatus.free:
+            raise HTTPException(status_code=400, detail="Table cannot be reserved")
         
         if data.guests_count > db_table.capacity:
             raise HTTPException(status_code=400, detail="Guests exceed table capacity")
@@ -255,6 +258,9 @@ def update_reservation(reservation_id: str, data: UpdateReservation, payload = D
         db_table = db.query(Table).filter(Table.id == new_table_id).first()
         if not db_table:
             raise HTTPException(status_code=404, detail="Table not found")
+        
+        if db_table.status != TableStatus.free:
+            raise HTTPException(status_code=400, detail="Table cannot be reserved")
 
         if db_table.capacity < new_guests_count:
             raise HTTPException(status_code=400, detail="Guests exceed table capacity")

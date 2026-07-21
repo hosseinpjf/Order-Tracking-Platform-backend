@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy import func
 from app.db.session import get_db
 from app.services.jwt_bearer import get_payload, get_optional_payload
@@ -43,6 +44,9 @@ def create_table(data: CreateTable, payload = Depends(get_payload), db: Session 
     except HTTPException as http_error:
         db.rollback()
         raise http_error
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Table number already exists")
     except Exception:
         db.rollback()
         raise HTTPException(status_code=500, detail="Table create failed")
