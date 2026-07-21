@@ -39,9 +39,13 @@ def create_reservation(data: CreateReservation, payload = Depends(get_payload), 
         reservation_duration = timedelta(minutes=int(table_reservation_time))
         end_time = data.start_time + reservation_duration
 
-        workday = get_working_hours(db)
+        workday = get_working_hours(db, data.start_time)
         open_time = workday["open_time"]
         close_time = workday["close_time"]
+        is_closed = workday["is_closed"]
+
+        if is_closed:
+            raise HTTPException(status_code=400, detail="Cafe is closed on the selected day")
 
         open_dt = datetime.combine(data.start_time.date(), open_time).replace(tzinfo=timezone.utc)
         close_dt = datetime.combine(data.start_time.date(), close_time).replace(tzinfo=timezone.utc)
@@ -254,9 +258,13 @@ def update_reservation(reservation_id: str, data: UpdateReservation, payload = D
         if new_start_time <= now_time:
             raise HTTPException(status_code=400, detail="Start time must be in the future")
 
-        workday = get_working_hours(db)
+        workday = get_working_hours(db, new_start_time)
         open_time = workday["open_time"]
         close_time = workday["close_time"]
+        is_closed = workday["is_closed"]
+
+        if is_closed:
+            raise HTTPException(status_code=400, detail="Cafe is closed on the selected day")
 
         open_dt = datetime.combine(new_start_time.date(), open_time).replace(tzinfo=timezone.utc)
         close_dt = datetime.combine(new_start_time.date(), close_time).replace(tzinfo=timezone.utc)

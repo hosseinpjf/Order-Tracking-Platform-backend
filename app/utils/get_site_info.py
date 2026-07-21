@@ -17,7 +17,7 @@ def get_site_info(db: Session) -> SiteInfo | None:
         raise HTTPException(status_code=500, detail="Reservation fetch failed")
 
 
-def get_working_hours(db: Session):
+def get_working_hours(db: Session, date: datetime):
     try:
         db_site_info = get_site_info(db)
 
@@ -26,16 +26,18 @@ def get_working_hours(db: Session):
             raise HTTPException(status_code=404, detail="Working hours not found")
 
         days = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
-        today = days[datetime.now(timezone.utc).weekday()]
+        today = days[date.weekday()]
 
         workday = next((item for item in working_hours if item.get("day") == today), None)
         if workday is None:
             raise HTTPException(status_code=400, detail="Working hours not configured for today")
+        
+        is_closed = workday.get("is_closed", False)
 
         return {
-            "open_time": time.fromisoformat(workday.get("open_time")),
-            "close_time": time.fromisoformat(workday.get("close_time")),
-            "is_closed": workday.get("is_closed", False),
+            "open_time": time.fromisoformat(workday.get("open_time")) if not is_closed else None,
+            "close_time": time.fromisoformat(workday.get("close_time")) if not is_closed else None,
+            "is_closed": is_closed,
         }
     except HTTPException as http_error:
         raise http_error

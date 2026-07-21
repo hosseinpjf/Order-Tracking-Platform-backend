@@ -13,6 +13,7 @@ from app.models.product import Product
 from app.models.user import User
 from app.middleware.exception_handler import response_handler
 from app.utils.calculations import calculate_order_totals, calculate_discounted_price
+from app.utils.get_site_info import get_working_hours
 
 
 router = APIRouter(prefix="/order", tags=["Order"])
@@ -29,6 +30,22 @@ def create_order(data: CreateOrder, payload = Depends(get_payload), db: Session 
         values = calculate_order_totals(data.items, product_ids, db_products)
 
         db_user = db.query(User).filter(User.id == payload["sub"]).first()
+
+        # Working hours
+        now_time = datetime.now(timezone.utc)
+
+        workday = get_working_hours(db, now_time)
+        open_time = workday["open_time"]
+        close_time = workday["close_time"]
+        is_closed = workday["is_closed"]
+
+        if is_closed:
+            raise HTTPException(status_code=400, detail="Cafe is closed today")
+
+        open_dt = datetime.combine(now_time.date(), open_time).replace(tzinfo=timezone.utc)
+        close_dt = datetime.combine(now_time.date(), close_time).replace(tzinfo=timezone.utc)
+        if now_time < open_dt or now_time > close_dt:
+            raise HTTPException(status_code=400, detail="Order is outside business hours")
 
         # Order
         new_order = Order(
