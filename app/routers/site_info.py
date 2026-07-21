@@ -10,6 +10,7 @@ from app.models.site_info import SiteInfo, SiteInfoPart
 from app.schemas.site_info import CreateSiteInfo, UpdateSiteInfo, DeleteSiteInfo
 from app.utils.site_info_helper import update_list, update_section, delete_list
 from app.utils.delete_file import delete_file, delete_files
+from app.utils.get_site_info import get_settings
 
 
 router = APIRouter(prefix="/info", tags=["Site Info"])
@@ -182,6 +183,10 @@ def get_info(
                 *(SiteInfoPart(field) for field in FIELDS_WITH_DICT_DATA),
             ]
 
+        show_working_hours = True
+        if not is_admin and (SiteInfoPart.all in parts or SiteInfoPart.working_hours in parts):
+            show_working_hours = get_settings(db, ["show_working_hours"])["show_working_hours"]
+
         data_output = {}
         for part in parts:
 
@@ -192,7 +197,10 @@ def get_info(
                 items = getattr(db_site_info, part.value) or []
                 if not is_admin:
                     items = [item for item in items if item.get("is_visible", True)]
-                data_output[part.value] = items
+                if part.value == "working_hours" and not show_working_hours and not is_admin:
+                    data_output[part.value] = []
+                else:
+                    data_output[part.value] = items
 
             elif part.value in FIELDS_WITH_DICT_DATA:
                 section = (getattr(db_site_info, part.value) or {}).copy()
