@@ -11,13 +11,13 @@ class SiteInfoSettings(enum.Enum):
     allow_online_payment = "allow_online_payment"                   # فعال/غیرفعال کردن پرداخت آنلاین
     allow_offline_payment = "allow_offline_payment"                 # فعال/غیرفعال کردن پرداخت حضوری
     auto_complete_preparing = "auto_complete_preparing"             # آیا سفارش‌های preparing خودکار تغییر وضعیت دهند
-    show_today_suggestions = "show_today_suggestions"               # نمایش/عدم نمایش پیشنهادهای امروز
     # Table Reservation Settings
     allow_table_reservation = "allow_table_reservation"             # فعال/غیرفعال کردن رزرو میز
     auto_expire_reservations = "auto_expire_reservations"           # expire خودکار رزروها
     auto_complete_reservations = "auto_complete_reservations"       # complete خودکار رزروهای seated
     show_reservation_section = "show_reservation_section"           # نمایش/عدم نمایش بخش رزرو در سایت
     # Content & UI Settings
+    show_today_suggestions = "show_today_suggestions"               # نمایش/عدم نمایش پیشنهادهای امروز
     show_statistics = "show_statistics"                             # نمایش/عدم نمایش آمار
     show_gallery = "show_gallery"                                   # نمایش/عدم نمایش گالری
     show_announcements = "show_announcements"                       # نمایش اطلاعیه‌ها

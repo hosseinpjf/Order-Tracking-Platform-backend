@@ -13,7 +13,7 @@ from app.models.product import Product
 from app.models.user import User
 from app.middleware.exception_handler import response_handler
 from app.utils.calculations import calculate_order_totals, calculate_discounted_price
-from app.utils.get_site_info import get_working_hours
+from app.utils.get_site_info import get_working_hours, get_settings
 
 
 router = APIRouter(prefix="/order", tags=["Order"])
@@ -22,8 +22,9 @@ router = APIRouter(prefix="/order", tags=["Order"])
 @router.post("/")
 def create_order(data: CreateOrder, payload = Depends(get_payload), db: Session = Depends(get_db)):
     try:
-        if payload["role"] != "admin":
-            raise HTTPException(status_code=403, detail="Access denied")
+        db_settings = get_settings(db, ["accept_order"])
+        if not db_settings["accept_order"]:
+            raise HTTPException(status_code=400, detail="Accept order disabled")
         
         product_ids = [item.product_id for item in data.items]
         db_products = db.query(Product).filter(Product.id.in_(product_ids)).all()
@@ -470,12 +471,19 @@ def pay_order(order_id: str, payload = Depends(get_payload), db: Session = Depen
             status = OrderStatus.confirmed,
         )
         db.add(new_order_status_history)
-        db.commit()
+        db.flush()
         db.refresh(db_order)
+
+        db_settings = get_settings(db, ["allow_online_payment", "allow_offline_payment"])
         
         if db_order.payment_type == PaymentType.online:
             if payload["sub"] != db_order.user_id:
                 raise HTTPException(status_code=403, detail="Only user can pay online")
+            
+            if not db_settings["allow_online_payment"]:
+                raise HTTPException(status_code=400, detail="Allow online payment disabled")
+            
+            db.commit()
             
             gateway_url = f"https://bank.example.com/pay?order_id={order_id}&amount={db_order.final_total_price}"
             return response_handler(
@@ -491,6 +499,11 @@ def pay_order(order_id: str, payload = Depends(get_payload), db: Session = Depen
         elif db_order.payment_type == PaymentType.offline:
             if payload["role"] != "admin":
                 raise HTTPException(status_code=403, detail="Only admin can confirm offline payments")
+            
+            if not db_settings["allow_offline_payment"]:
+                raise HTTPException(status_code=400, detail="Allow offline payment disabled")
+            
+            db.commit()
             
             return response_handler(
                 status=True,
