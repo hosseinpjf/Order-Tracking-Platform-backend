@@ -12,7 +12,6 @@ class CreateButton(BaseModel):
     text: str = Field(..., min_length=1)
     url: str = Field(..., min_length=1)
     order: int = Field(..., gt=0)
-    is_visible: bool = True
 
 class CreateSiteContent(BaseModel):
     title: str = Field(..., min_length=1)

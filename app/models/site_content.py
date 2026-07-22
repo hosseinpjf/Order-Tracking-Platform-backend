@@ -17,6 +17,15 @@ class SiteContentType(enum.Enum):
     faqs = "faqs"
     team_members = "team_members"
 
+class SiteContentSort(enum.Enum):
+    created_at_desc = "created_at_desc"
+    created_at_asc = "created_at_asc"
+    updated_at_desc = "updated_at_desc"
+    updated_at_asc = "updated_at_asc"
+    order_desc = "order_desc"
+    order_asc = "order_asc"
+
+
 class SiteContent(Base):
     __tablename__ = "site_contents"
 
