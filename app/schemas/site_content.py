@@ -1,5 +1,7 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Any
+from datetime import datetime
+from app.models.site_content import SiteContentType
 
 
 class CreateImages(BaseModel):
@@ -24,3 +26,20 @@ class CreateSiteContent(BaseModel):
     order: int = Field(..., gt=0)
     position: str = Field(..., min_length=1)
     is_visible: bool = True
+
+
+class OutSiteContent(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    type: SiteContentType
+    title: str
+    subtitle: str | None
+    content: dict[str, Any] | list[Any] | None
+    images: list[CreateImages] | None
+    icons: list[CreateImages] | None
+    buttons: list[CreateButton] | None
+    order: int
+    position: str
+    is_visible: bool
+    created_at: datetime
+    updated_at: datetime

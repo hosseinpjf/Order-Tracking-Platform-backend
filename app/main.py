@@ -23,6 +23,7 @@ from .routers.orders import router as router_orders
 from .routers.tables import router as router_tables
 from .routers.table_reservations import router as router_table_reservations
 from .routers.site_info import router as router_site_info
+from .routers.site_contents import router as router_site_contents
 
 from .core.init_site_info import init_settings, init_working_hours
 from .jobs.table_reservation import auto_update_reservations
@@ -82,6 +83,7 @@ app.include_router(router_orders)
 app.include_router(router_tables)
 app.include_router(router_table_reservations)
 app.include_router(router_site_info)
+app.include_router(router_site_contents)
 
 app.add_exception_handler(HTTPException, http_exception_handler)
 app.add_exception_handler(Exception, general_exception_handler)

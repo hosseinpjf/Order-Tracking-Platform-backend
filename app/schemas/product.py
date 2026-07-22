@@ -5,7 +5,7 @@ from app.models.product import ProductTags
 
 class ImageSchema(BaseModel):
     url: str = Field(..., pattern=r"^/media/uploads/products/[A-Za-z0-9_\-./]+\.(jpg|jpeg|png|webp)$")
-    position: str
+    position: str = Field(..., min_length=1)
 
 class CreateProduct(BaseModel):
     title: str = Field(..., min_length=1)
