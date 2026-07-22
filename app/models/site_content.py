@@ -1,0 +1,41 @@
+from sqlalchemy import Column, String, DateTime, Enum, Integer, Boolean, JSON
+from datetime import datetime, timezone
+from sqlalchemy.ext.mutable import MutableList, MutableDict
+import uuid
+import enum
+from app.db.base import Base
+
+
+class SiteContentType(enum.Enum):
+    statistics = "statistics"
+    announcements = "announcements"
+    banner = "banner"
+    gallery = "gallery"
+    facilities = "facilities"
+    services = "services"
+    features = "features"
+    faqs = "faqs"
+    team_members = "team_members"
+
+class SiteContent(Base):
+    __tablename__ = "site_contents"
+
+    id = Column(String, primary_key=True, index=True, default=lambda: uuid.uuid4().hex)
+    
+    type = Column(Enum(SiteContentType), nullable=False, index=True)
+
+    title = Column(String, nullable=True)
+    subtitle = Column(String, nullable=True)
+    content = Column(MutableDict.as_mutable(JSON), nullable=True, default=dict)
+
+    images = Column(MutableList.as_mutable(JSON), nullable=True, default=list)
+    icons = Column(MutableList.as_mutable(JSON), nullable=True, default=list)
+    buttons = Column(MutableList.as_mutable(JSON), nullable=True, default=list)
+
+    order = Column(Integer, nullable=False)
+    position = Column(String, nullable=True)
+    is_visible = Column(Boolean, nullable=False, default=True)
+
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    

@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 from datetime import time
-from typing import List
+from typing import List, Any
 
 # ---------------------------------------<< Create >>---------------------------------------
 class CreateImages(BaseModel):
@@ -42,7 +42,7 @@ class CreateTodaySuggestions(BaseModel):
 class CreateSection(BaseModel):
     title: str | None = Field(None, min_length=1)
     subtitle: str | None = Field(None, min_length=1)
-    content: str | None = Field(None, min_length=1)
+    content: dict[str, Any] | list[Any] | None = None
     images: List[CreateImages] | None = None
     buttons: List[CreateButton] | None = None
 
@@ -102,7 +102,7 @@ class UpdateSetting(BaseModel):
 class UpdateSection(BaseModel):
     title: str | None = None
     subtitle: str | None = None
-    content: str | None = None
+    content: dict[str, Any] | list[Any] | None = None
     images: List[UpdateImages] | None = None
     buttons: List[UpdateButton] | None = None
 
