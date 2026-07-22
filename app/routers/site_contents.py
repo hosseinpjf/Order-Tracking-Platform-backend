@@ -116,20 +116,41 @@ def get_content(
         db_site_content = []
         query = db.query(SiteContent)
 
+        if not is_admin:
+            db_settings = get_settings(db, [
+                "show_statistics",
+                "show_announcements",
+                "show_banners",
+                "show_gallery",
+                "show_facilities",
+                "show_services",
+                "show_features",
+                "show_faqs",
+                "show_team_members",
+            ])
+            allowed_types = [
+                content_type_item
+                for content_type_item in SiteContentType
+                if db_settings[f"show_{content_type_item.value}"]
+            ]
+            query = query.filter(
+                SiteContent.type.in_(allowed_types),
+                SiteContent.is_visible.is_(True),
+            )
+
         if content_type:
             query =  query.filter(SiteContent.type.in_(content_type))
 
         if is_admin:
             if q:
+                search = f"%{q}%"
                 query = query.filter(or_(
-                    SiteContent.title.ilike(f"%{q}%"), 
-                    SiteContent.subtitle.ilike(f"%{q}%"), 
-                    SiteContent.content.cast(String).ilike(f"%{q}%")
+                    SiteContent.title.ilike(search), 
+                    SiteContent.subtitle.ilike(search), 
+                    SiteContent.content.cast(String).ilike(search)
                 ))
             if is_visible is not None:
                 query = query.filter(SiteContent.is_visible == is_visible)
-        else:
-            query = query.filter(SiteContent.is_visible.is_(True))
 
         if sort == SiteContentSort.created_at_desc:
             query = query.order_by(SiteContent.created_at.desc())
@@ -143,6 +164,8 @@ def get_content(
             query = query.order_by(SiteContent.type.asc(), SiteContent.order.desc())
         elif sort == SiteContentSort.order_asc:
             query = query.order_by(SiteContent.type.asc(), SiteContent.order.asc())
+        else:
+            query = query.order_by(SiteContent.type.asc(), SiteContent.order.desc())
 
         db_contents_total = query.count()
         db_site_content = query.all()
@@ -178,7 +201,7 @@ def delete_content(content_id: str, payload = Depends(get_payload), db: Session 
         old_files = set()
 
         for field in ("images", "icons"):
-            if field in db_site_content:
+            if hasattr(db_site_content, field):
                 old_files.update(item["url"] for item in (getattr(db_site_content, field) or []) if item.get("url"))
 
         db.delete(db_site_content)

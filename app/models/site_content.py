@@ -9,7 +9,7 @@ from app.db.base import Base
 class SiteContentType(enum.Enum):
     statistics = "statistics"
     announcements = "announcements"
-    banner = "banner"
+    banners = "banners"
     gallery = "gallery"
     facilities = "facilities"
     services = "services"
