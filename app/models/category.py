@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, DateTime
+from sqlalchemy import Column, String, DateTime, JSON
 from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
 import uuid
@@ -10,5 +10,6 @@ class Category(Base):
     id = Column(String, primary_key=True, index=True, default=lambda: uuid.uuid4().hex)
     title = Column(String, nullable=False, unique=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    images = Column(JSON, default=list)
 
     products = relationship("Product", back_populates="category", cascade="all, delete-orphan")
