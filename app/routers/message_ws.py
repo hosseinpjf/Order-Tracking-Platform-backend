@@ -7,6 +7,7 @@ from app.models.message import Message
 from app.models.device_tracking import DeviceTracking
 from app.models.user import User
 from app.websockets.message_manager import MessageConnectionManager
+from app.utils.get_site_info import get_settings
 
 
 router = APIRouter()
@@ -52,6 +53,14 @@ async def websocket_messages(websocket: WebSocket):
 
     db_device = await asyncio.to_thread(_get_device)
 
+    # ----------------------------<< Load settings >>----------------------------
+    def _get_settings():
+        db = SessionLocal()
+        try:
+            return get_settings(db, ["allow_messages"])
+        finally:
+            db.close()
+
     # ----------------------------<< Create a channel >>----------------------------
     # 1) Connection in ConnectionManager
     await manager.connect(user_id, db_device.id, websocket)
@@ -63,6 +72,12 @@ async def websocket_messages(websocket: WebSocket):
 
             # ----------------------------<< Message sending operation >>----------------------------
             if event_type == "send_message":
+
+                # Messaging disabled globally?
+                db_settings = await asyncio.to_thread(_get_settings)
+                if not db_settings["allow_messages"]:
+                    await websocket.send_json({"event": "error", "message": "Messaging is currently disabled by admin"})
+                    continue
 
                 receiver_id = data.get("receiver_id")
                 content = data.get("content")

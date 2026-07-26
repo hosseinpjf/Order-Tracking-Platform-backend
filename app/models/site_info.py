@@ -16,12 +16,10 @@ class SiteInfoSettings(enum.Enum):
     auto_expire_reservations = "auto_expire_reservations"                       # expire خودکار رزروها
     auto_complete_reservations = "auto_complete_reservations"                   # complete خودکار رزروهای seated
     # Messages
-    allow_guest_user_messages = "allow_guest_user_messages"                     # اجازه پیام دادن به کاربران مهمان
-    allow_authenticated_user_messages = "allow_authenticated_user_messages"     # اجازه پیام دادن به کاربران احراز هویت شده
+    allow_messages = "allow_messages"                                           # اجازه پیام دادن به کاربران احراز هویت شده
     # Content & UI Settings
     show_table_reservation = "show_table_reservation"                           # نمایش/عدم نمایش بخش رزرو میز در سایت
-    show_guest_user_messages = "show_guest_user_messages"                       # نمایش بخش پیام دادن کاربران مهمان در سایت
-    show_authenticated_user_messages = "show_authenticated_user_messages"       # نمایش بخش پیام دادن کاربران احراز هویت شده
+    show_messages = "show_messages"                                             # نمایش بخش پیام دادن کاربران احراز هویت شده
     show_working_hours = "show_working_hours"                                   # نمایش ساعات کاری
     show_statistics = "show_statistics"                                         # نمایش/عدم نمایش آمار
     show_gallery = "show_gallery"                                               # نمایش/عدم نمایش گالری
