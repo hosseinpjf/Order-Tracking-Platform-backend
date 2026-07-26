@@ -9,7 +9,7 @@ from app.services.jwt_bearer import get_payload
 from app.models.message import Message
 from app.models.user import User, UserRole
 from app.middleware.exception_handler import response_handler
-from app.utils.get_site_info import get_working_hours, get_settings
+from app.utils.get_site_info import get_settings
 from app.routers.message_ws import manager
 
 logger = logging.getLogger(__name__)
@@ -19,7 +19,7 @@ router = APIRouter(prefix="/message", tags=["Message"])
 
 
 @router.get("/chats")
-async def get_message_users(
+async def get_chats(
     payload = Depends(get_payload),
     db: Session = Depends(get_db),
     page: int = Query(default=1, ge=1),
@@ -317,6 +317,11 @@ async def get_messages_for_user(
     limit: int = Query(default=20, ge=1, le=100),
 ):
     try:
+        # ----------------------------<< Allow show messages >>----------------------------
+        db_settings = get_settings(db, ["show_messages"])
+        if not db_settings["show_messages"]:
+            raise HTTPException(status_code=400, detail="Show messages disabled")
+        
         # ----------------------------<< User Authentication >>----------------------------
         user_id = payload["sub"]
 
