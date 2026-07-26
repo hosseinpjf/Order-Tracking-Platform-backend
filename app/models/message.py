@@ -20,4 +20,7 @@ class Message(Base):
 
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
-    __table_args__ = (Index("ix_messages_conversation", "sender_id", "receiver_id", "created_at"),)
+    __table_args__ = (
+        Index("ix_messages_sender_receiver_created", "sender_id", "receiver_id", "created_at"),
+        Index("ix_messages_receiver_sender_created", "receiver_id", "sender_id", "created_at"),
+    )

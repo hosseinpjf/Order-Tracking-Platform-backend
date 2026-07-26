@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import func, case, or_, and_, distinct, not_
+from sqlalchemy import func, case, or_, and_, not_
 from datetime import datetime, timezone
 import math
 import logging
@@ -199,3 +199,104 @@ async def get_message_users(
     except Exception:
         logger.exception("Failed to get chats. Admin ID: %s", payload["sub"])
         raise HTTPException(status_code=500, detail="Get chats failed")
+
+
+@router.get("/messages/{user_id}")
+async def get_messages_for_admin(
+    user_id: str,
+    payload = Depends(get_payload),
+    db: Session = Depends(get_db),
+    page: int = Query(default=1, ge=1),
+    limit: int = Query(default=20, ge=1, le=100),
+):
+    try:
+        if payload["role"] != "admin":
+            raise HTTPException(status_code=403, detail="Access denied")
+
+        admin_ids = {
+            admin_id
+            for (admin_id,) in db.query(User.id).filter(User.role == UserRole.admin).all()
+        }
+        if not admin_ids:
+            raise HTTPException(status_code=404, detail="No admin found")
+
+        partner = db.query(User).filter(User.id == user_id).first()
+        if not partner:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        query = db.query(Message).filter(
+            or_(
+                and_(Message.sender_id.in_(admin_ids), Message.receiver_id == user_id),
+                and_(Message.receiver_id.in_(admin_ids), Message.sender_id == user_id),
+            )
+        )
+
+        total = query.count()
+
+        messages = query.order_by(Message.created_at.asc()).offset((page - 1) * limit).limit(limit).all()
+
+        reply_ids = {
+            message.reply_to_message_id
+            for message in messages
+            if message.reply_to_message_id
+        }
+
+        reply_map = {}
+
+        if reply_ids:
+
+            reply_map = {
+                message.id: message
+                for message in db.query(Message).filter(Message.id.in_(reply_ids)).all()
+            }
+
+        results = []
+
+        for message in messages:
+
+            reply = reply_map.get(message.reply_to_message_id)
+
+            reply_data = None
+
+            if reply:
+                reply_data = {
+                    "id": reply.id,
+                    "content": reply.content,
+                    "sender_id": reply.sender_id,
+                    "receiver_id": reply.receiver_id,
+                    "created_at": reply.created_at.isoformat(),
+                }
+
+            results.append({
+                "id": message.id,
+                "sender_id": message.sender_id,
+                "receiver_id": message.receiver_id,
+                "content": message.content,
+
+                "reply": reply_data,
+
+                "is_read": message.is_read,
+                "is_delivered": message.is_delivered,
+
+                "created_at": message.created_at.isoformat(),
+            })
+
+        return response_handler(
+            status=True,
+            message="Messages fetched successfully",
+            data={
+                "messages": results,
+                "total": total,
+                "page": page,
+                "limit": limit,
+                "pages": math.ceil(total / limit),
+            },
+            status_code=200
+        )
+    except HTTPException as http_error:
+        raise http_error
+    except Exception:
+        logger.exception("Failed to fetch messages. admin_id=%s user_id=%s", payload["sub"], user_id)
+        raise HTTPException(status_code=500, detail="Get messages failed")
+
+
