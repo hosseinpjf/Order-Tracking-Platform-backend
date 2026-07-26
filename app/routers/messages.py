@@ -210,9 +210,11 @@ async def get_messages_for_admin(
     limit: int = Query(default=20, ge=1, le=100),
 ):
     try:
+        # ----------------------------<< Admin Authentication >>----------------------------
         if payload["role"] != "admin":
             raise HTTPException(status_code=403, detail="Access denied")
 
+        # ----------------------------<< Get all admin IDs >>----------------------------
         admin_ids = {
             admin_id
             for (admin_id,) in db.query(User.id).filter(User.role == UserRole.admin).all()
@@ -220,10 +222,12 @@ async def get_messages_for_admin(
         if not admin_ids:
             raise HTTPException(status_code=404, detail="No admin found")
 
-        partner = db.query(User).filter(User.id == user_id).first()
-        if not partner:
+        # ----------------------------<< User Authentication >>----------------------------
+        db_user = db.query(User).filter(User.id == user_id).first()
+        if not db_user:
             raise HTTPException(status_code=404, detail="User not found")
 
+        # ----------------------------<< Main Query >>----------------------------
         query = db.query(Message).filter(
             or_(
                 and_(Message.sender_id.in_(admin_ids), Message.receiver_id == user_id),
@@ -231,10 +235,13 @@ async def get_messages_for_admin(
             )
         )
 
+        # ----------------------------<< Total Count >>----------------------------
         total = query.count()
 
+        # ----------------------------<< Pagination >>----------------------------
         messages = query.order_by(Message.created_at.asc()).offset((page - 1) * limit).limit(limit).all()
 
+        # ----------------------------<< Reply Optimization >>----------------------------
         reply_ids = {
             message.reply_to_message_id
             for message in messages
@@ -250,6 +257,7 @@ async def get_messages_for_admin(
                 for message in db.query(Message).filter(Message.id.in_(reply_ids)).all()
             }
 
+        # ----------------------------<< Build Response >>----------------------------
         results = []
 
         for message in messages:
@@ -273,7 +281,7 @@ async def get_messages_for_admin(
                 "receiver_id": message.receiver_id,
                 "content": message.content,
 
-                "reply": reply_data,
+                "reply_to": reply_data,
 
                 "is_read": message.is_read,
                 "is_delivered": message.is_delivered,
@@ -281,6 +289,7 @@ async def get_messages_for_admin(
                 "created_at": message.created_at.isoformat(),
             })
 
+        # ----------------------------<< Final Response >>----------------------------
         return response_handler(
             status=True,
             message="Messages fetched successfully",
@@ -299,4 +308,108 @@ async def get_messages_for_admin(
         logger.exception("Failed to fetch messages. admin_id=%s user_id=%s", payload["sub"], user_id)
         raise HTTPException(status_code=500, detail="Get messages failed")
 
+
+@router.get("/messages")
+async def get_messages_for_user(
+    payload = Depends(get_payload),
+    db: Session = Depends(get_db),
+    page: int = Query(default=1, ge=1),
+    limit: int = Query(default=20, ge=1, le=100),
+):
+    try:
+        # ----------------------------<< User Authentication >>----------------------------
+        user_id = payload["sub"]
+
+        db_user = db.query(User).filter(User.id == user_id, User.role == UserRole.user).first()
+        if not db_user:
+            raise HTTPException(status_code=403, detail="Access denied")
+
+        # ----------------------------<< Get all admin IDs >>----------------------------
+        admin_ids = {
+            admin_id
+            for (admin_id,) in db.query(User.id).filter(User.role == UserRole.admin).all()
+        }
+        if not admin_ids:
+            raise HTTPException(status_code=404, detail="No admin found")
+
+        # ----------------------------<< Main Query >>----------------------------
+        query = db.query(Message).filter(
+            or_(
+                and_(Message.sender_id.in_(admin_ids), Message.receiver_id == user_id),
+                and_(Message.receiver_id.in_(admin_ids), Message.sender_id == user_id),
+            )
+        )
+
+        # ----------------------------<< Total Count >>----------------------------
+        total = query.count()
+
+        # ----------------------------<< Pagination >>----------------------------
+        messages = query.order_by(Message.created_at.asc()).offset((page - 1) * limit).limit(limit).all()
+
+        # ----------------------------<< Reply Optimization >>----------------------------
+        reply_ids = {
+            message.reply_to_message_id
+            for message in messages
+            if message.reply_to_message_id
+        }
+
+        reply_map = {}
+
+        if reply_ids:
+
+            reply_map = {
+                message.id: message
+                for message in db.query(Message).filter(Message.id.in_(reply_ids)).all()
+            }
+
+        # ----------------------------<< Build Response >>----------------------------
+        results = []
+
+        for message in messages:
+
+            reply = reply_map.get(message.reply_to_message_id)
+
+            reply_data = None
+
+            if reply:
+                reply_data = {
+                    "id": reply.id,
+                    "content": reply.content,
+                    "sender_id": reply.sender_id,
+                    "receiver_id": reply.receiver_id,
+                    "created_at": reply.created_at.isoformat(),
+                }
+
+            results.append({
+                "id": message.id,
+                "sender_id": message.sender_id,
+                "receiver_id": message.receiver_id,
+                "content": message.content,
+
+                "reply_to": reply_data,
+
+                "is_read": message.is_read,
+                "is_delivered": message.is_delivered,
+
+                "created_at": message.created_at.isoformat(),
+            })
+
+        # ----------------------------<< Final Response >>----------------------------
+        return response_handler(
+            status=True,
+            message="Messages fetched successfully",
+            data={
+                "messages": results,
+                "total": total,
+                "page": page,
+                "limit": limit,
+                "pages": math.ceil(total / limit),
+            },
+            status_code=200
+        )
+    except HTTPException as http_error:
+        raise http_error
+    except Exception:
+        logger.exception("Failed to fetch messages. admin_id=%s", payload["sub"])
+        raise HTTPException(status_code=500, detail="Get messages failed")
 
