@@ -7,7 +7,9 @@ from app.middleware.exception_handler import response_handler
 from app.models.category import Category
 from app.models.product import Product
 
+
 router = APIRouter(prefix="/reports", tags=["Reports"])
+
 
 @router.get("/category/kpi")
 def get_categories_summary(payload=Depends(get_payload), db: Session = Depends(get_db)):
@@ -49,7 +51,7 @@ def get_categories_summary(payload=Depends(get_payload), db: Session = Depends(g
 
         return response_handler(
             status=True,
-            message="Get KPI report by category successful",
+            message="Get category KPI report successful",
             data={
                 "total_categories": summary.total_categories or 0,
                 "categories_with_products": summary.categories_with_products or 0,
@@ -84,4 +86,41 @@ def get_categories_summary(payload=Depends(get_payload), db: Session = Depends(g
         raise http_error
     except Exception:
         raise HTTPException(status_code=500, detail="Get category KPI report failed")
+
+
+@router.get("/category/charts")
+def get_category_chart(payload=Depends(get_payload), db: Session = Depends(get_db)):
+    try:
+        if payload["role"] != "admin":
+            raise HTTPException(status_code=403, detail="Access denied")
+
+        categories = (
+            db.query(
+                Category.id,
+                Category.title,
+                func.count(Product.id).label("products_count")
+            )
+            .outerjoin(Product, Product.category_id == Category.id)
+            .group_by(Category.id, Category.title)
+            .order_by(func.count(Product.id).desc(), Category.title.asc())
+            .all()
+        )
+
+        return response_handler(
+            status=True,
+            message="Get category chart report successful",
+            data=[
+                {
+                    "id": category.id,
+                    "title": category.title,
+                    "products_count": category.products_count
+                }
+                for category in categories
+            ],
+            status_code=200,
+        )
+    except HTTPException as http_error:
+        raise http_error
+    except Exception:
+        raise HTTPException(status_code=500, detail="Get category chart report failed")
 
