@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field, ConfigDict
 from datetime import datetime
 from typing import List
-from app.models.order import OrderType, OrderStatus, PaymentType
+from app.models.order import OrderType, OrderStatus, PaymentType, OrderChartType
 from app.models.order_status_history import StatusChangedBy
 from app.schemas.user import OutUser
 
@@ -20,6 +20,11 @@ class CreateOrder(BaseModel):
 class UpdateStatus(BaseModel):
     changed_by: StatusChangedBy
     status: OrderStatus
+
+class ChartFilter(BaseModel):
+    chart_type: OrderChartType
+    from_date: datetime
+    to_date: datetime
 
 
 class OutOrder(BaseModel):
