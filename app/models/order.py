@@ -5,6 +5,7 @@ import uuid
 import enum
 from app.db.base import Base
 
+
 class OrderStatus(enum.Enum):
     pending = "pending"        # سفارش ثبت شده اما هزینه اش پرداخت نشده
     # تایید درگاه پرداختی
@@ -42,6 +43,15 @@ class OrderSort(enum.Enum):
     items_asc = "items_asc"                   # دارای کمترین آیتم
     prepare_time_desc = "prepare_time_desc"   # سریع ترین آماده سازی
     prepare_time_asc = "prepare_time_asc"     # کند ترین آماده سازی
+
+class OrderChartType(enum.Enum):
+    orders_trend = "orders_trend"       # نمایش روند افزایش یا کاهش تعداد سفارش‌ها در بازه زمانی 
+    sales_trend = "sales_trend"         # نمایش روند درآمد مجموعه 
+    order_type = "order_type"           # بررسی اینکه مشتری‌ها بیشتر حضوری، بیرون‌بر یا ارسال سفارش می‌دهند 
+    payment_type = "payment_type"       # بررسی میزان استفاده از پرداخت آنلاین یا حضوری 
+    busy_hours = "busy_hours"           # مشخص شدن ساعت‌های پرترافیک مجموعه برای مدیریت نیروها 
+    weekday_orders = "weekday_orders"   # مشخص شدن شلوغ‌ترین روزهای هفته 
+
 
 class Order(Base):
     __tablename__ = "orders"
