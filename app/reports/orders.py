@@ -5,11 +5,26 @@ from datetime import datetime
 from app.db.session import get_db
 from app.services.jwt_bearer import get_payload
 from app.middleware.exception_handler import response_handler
-from app.models.order import Order, OrderStatus
+from app.models.order import Order, OrderStatus, OrderChartType
 from app.models.order_item import OrderItem
 from app.models.order_status_history import OrderStatusHistory
+from app.utils.order_charts import get_orders_trend, get_sales_trend, get_order_type_chart, get_payment_type_chart, get_busy_hours_chart, get_weekday_orders_chart
+
 
 router = APIRouter(prefix="/reports", tags=["Reports"])
+
+
+ORDER_CHART_HANDLERS = {
+    OrderChartType.orders_trend: get_orders_trend,
+    OrderChartType.sales_trend: get_sales_trend,
+
+    OrderChartType.order_type: get_order_type_chart,
+    OrderChartType.payment_type: get_payment_type_chart,
+
+    OrderChartType.busy_hours: get_busy_hours_chart,
+    OrderChartType.weekday_orders: get_weekday_orders_chart,
+}
+
 
 @router.get("/order/kpi")
 def get_order_kpi(
@@ -141,4 +156,37 @@ def get_order_kpi(
         raise http_error
     except Exception:
         raise HTTPException(status_code=500, detail="Get order KPI report failed")
+
+
+@router.get("/order/charts")
+def get_order_chart(
+    payload = Depends(get_payload),
+    db: Session = Depends(get_db),
+    chart_type: OrderChartType = Query(...),
+    from_date: datetime = Query(...),
+    to_date: datetime = Query(...),
+):
+    try:
+        if payload["role"] != "admin":
+            raise HTTPException(status_code=403, detail="Access denied")
+
+        chart_handler = ORDER_CHART_HANDLERS.get(chart_type)
+
+        if chart_handler is None:
+            raise HTTPException(status_code=400, detail="Invalid chart type")
+
+        data = chart_handler(db, from_date, to_date)
+
+        return response_handler(
+            status=True,
+            message="Get order chart report successful",
+            data=data,
+            status_code=200,
+        )
+    except HTTPException as http_error:
+        raise http_error
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error))
+    except Exception:
+        raise HTTPException(status_code=500, detail="Get order chart report failed")
 

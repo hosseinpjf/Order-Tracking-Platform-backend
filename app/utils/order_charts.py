@@ -3,7 +3,8 @@ from collections import Counter
 from sqlalchemy import func, Integer
 from sqlalchemy.orm import Session
 from app.models.order import Order, OrderStatus
-from app.utils.chart_helper import get_chart_group_type, get_daily_group_expression, merge_daily_rows, fill_missing_periods, normalize_datetime
+from app.utils.order_chart_helper import get_chart_group_type, get_daily_group_expression, merge_daily_rows, fill_missing_periods
+from app.utils.chart_helper import normalize_datetime
 
 
 # ------------

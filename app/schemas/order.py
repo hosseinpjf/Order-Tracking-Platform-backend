@@ -21,11 +21,6 @@ class UpdateStatus(BaseModel):
     changed_by: StatusChangedBy
     status: OrderStatus
 
-class ChartFilter(BaseModel):
-    chart_type: OrderChartType
-    from_date: datetime
-    to_date: datetime
-
 
 class OutOrder(BaseModel):
     model_config = ConfigDict(from_attributes=True)
