@@ -147,6 +147,7 @@ def update_product(product_id: str, data: UpdateProduct, payload = Depends(get_p
             raise HTTPException(status_code=404, detail="Product not found")
 
         old_images = []
+        new_images = []
 
         update_data = data.model_dump(
             exclude_unset=True,
