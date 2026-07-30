@@ -1,14 +1,21 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, case
 from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.services.jwt_bearer import get_payload
 from app.middleware.exception_handler import response_handler
-from app.models.category import Category
+from app.models.category import Category, CategoryChartType
 from app.models.product import Product
+from app.utils.category_charts import get_products_count_chart, get_category_sales_chart
 
 
 router = APIRouter(prefix="/reports", tags=["Reports"])
+
+
+CATEGORY_CHART_HANDLERS = {
+    CategoryChartType.products_count: get_products_count_chart,
+    CategoryChartType.sales: get_category_sales_chart,
+}
 
 
 @router.get("/category/kpi")
@@ -89,34 +96,26 @@ def get_categories_summary(payload=Depends(get_payload), db: Session = Depends(g
 
 
 @router.get("/category/charts")
-def get_category_chart(payload=Depends(get_payload), db: Session = Depends(get_db)):
+def get_category_chart(
+    payload=Depends(get_payload), 
+    db: Session = Depends(get_db),
+    chart_type: CategoryChartType = Query(...),
+):
     try:
         if payload["role"] != "admin":
             raise HTTPException(status_code=403, detail="Access denied")
 
-        categories = (
-            db.query(
-                Category.id,
-                Category.title,
-                func.count(Product.id).label("products_count")
-            )
-            .outerjoin(Product, Product.category_id == Category.id)
-            .group_by(Category.id, Category.title)
-            .order_by(func.count(Product.id).desc(), Category.title.asc())
-            .all()
-        )
+        chart_handler = CATEGORY_CHART_HANDLERS.get(chart_type)
+
+        if chart_handler is None:
+            raise HTTPException(status_code=400, detail="Invalid chart type")
+
+        data = chart_handler(db)
 
         return response_handler(
             status=True,
             message="Get category chart report successful",
-            data=[
-                {
-                    "id": category.id,
-                    "title": category.title,
-                    "products_count": category.products_count
-                }
-                for category in categories
-            ],
+            data=data,
             status_code=200,
         )
     except HTTPException as http_error:

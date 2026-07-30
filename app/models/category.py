@@ -2,7 +2,13 @@ from sqlalchemy import Column, String, DateTime, JSON
 from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
 import uuid
+import enum
 from app.db.base import Base
+
+
+class CategoryChartType(enum.Enum):
+    products_count = "products_count"   # براساس تعداد محصولات هر دسته
+    sales = "sales"                     # براساس میزان فروش هر دسته
 
 class Category(Base):
     __tablename__ = "categories"
