@@ -30,6 +30,7 @@ from .routers.messages import router as router_messages
 from .reports.categories import router as report_categories
 from .reports.orders import router as report_orders
 from .reports.products import router as report_products
+from .reports.site_contents import router as report_site_contents
 
 from .core.init_site_info import init_settings, init_working_hours
 from .jobs.table_reservation import auto_update_reservations
@@ -96,6 +97,7 @@ app.include_router(router_messages)
 app.include_router(report_categories)
 app.include_router(report_orders)
 app.include_router(report_products)
+app.include_router(report_site_contents)
 
 app.add_exception_handler(HTTPException, http_exception_handler)
 app.add_exception_handler(Exception, general_exception_handler)
