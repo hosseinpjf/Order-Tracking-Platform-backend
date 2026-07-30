@@ -4,10 +4,19 @@ from sqlalchemy import func, case
 from app.db.session import get_db
 from app.services.jwt_bearer import get_payload
 from app.middleware.exception_handler import response_handler
-from app.models.product import Product
+from app.models.product import Product, ProductChartType
+from app.utils.product_charts import get_best_selling_products_chart, get_highest_revenue_products_chart, get_price_distribution_chart, get_tags_distribution_chart
 
 
 router = APIRouter(prefix="/reports", tags=["Reports"])
+
+
+PRODUCT_CHART_HANDLERS = {
+    ProductChartType.best_selling_products: get_best_selling_products_chart,
+    ProductChartType.highest_revenue_products: get_highest_revenue_products_chart,
+    ProductChartType.price_distribution: get_price_distribution_chart,
+    ProductChartType.tags_distribution: get_tags_distribution_chart,
+}
 
 
 @router.get("/product/kpi")
@@ -121,4 +130,37 @@ def get_products_summary(payload = Depends(get_payload), db: Session = Depends(g
         raise http_error
     except Exception:
         raise HTTPException(status_code=500, detail="Get product KPI report failed")
+
+
+@router.get("/product/charts")
+def get_product_chart(
+    payload = Depends(get_payload),
+    db: Session = Depends(get_db),
+    chart_type: ProductChartType = Query(...),
+    price_distribution_buckets: int = Query(5, ge=2, le=20),
+):
+    try:
+        if payload["role"] != "admin":
+            raise HTTPException(status_code=403, detail="Access denied")
+
+        chart_handler = PRODUCT_CHART_HANDLERS.get(chart_type)
+
+        if chart_handler is None:
+            raise HTTPException(status_code=400, detail="Invalid chart type")
+
+        if chart_type == ProductChartType.price_distribution:
+            data = chart_handler(db, price_distribution_buckets)
+        else:
+            data = chart_handler(db)
+
+        return response_handler(
+            status=True,
+            message="Get product chart report successful",
+            data=data,
+            status_code=200,
+        )
+    except HTTPException as http_error:
+        raise http_error
+    except Exception:
+        raise HTTPException(status_code=500, detail="Get product chart report failed")
 

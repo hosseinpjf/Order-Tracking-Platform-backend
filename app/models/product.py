@@ -6,6 +6,7 @@ import uuid
 import enum
 from app.db.base import Base
 
+
 class ProductTags(enum.Enum):
     new = "new"                     #  محصول تازه اضافه شده یا جدید در فروشگاه
     popular = "popular"             #  محصول پرطرفدار و پرفروش
@@ -29,6 +30,13 @@ class ProductSort(enum.Enum):
     price_asc = "price_asc"                 # ارزان ترین
     discount_desc = "discount_desc"         # بیشترین تخفیف
     prepare_time_asc = "prepare_time_asc"   # زمان آماده سازی
+
+class ProductChartType(enum.Enum):
+    best_selling_products = "best_selling_products"
+    highest_revenue_products = "highest_revenue_products"
+    price_distribution = "price_distribution"
+    tags_distribution = "tags_distribution"
+
 
 class Product(Base):
     __tablename__ = "products"
