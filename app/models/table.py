@@ -26,6 +26,10 @@ class TableTags(enum.Enum):
     kids_friendly = "kids_friendly" # مناسب کودکان
     private = "private"             # فضای خصوصی
 
+class TableChartType(enum.Enum):
+    capacity_distribution = "capacity_distribution"
+    tags_distribution = "tags_distribution"
+
 
 class Table(Base):
     __tablename__ = "tables"

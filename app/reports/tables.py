@@ -1,13 +1,20 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func, case
 from app.db.session import get_db
 from app.services.jwt_bearer import get_payload
 from app.middleware.exception_handler import response_handler
-from app.models.table import Table, TableStatus, TableTags
+from app.models.table import Table, TableStatus, TableChartType
+from app.utils.table_charts import get_tags_distribution_chart, get_capacity_distribution_chart
 
 
 router = APIRouter(prefix="/reports", tags=["Reports"])
+
+
+TABLE_CHART_HANDLERS = {
+    TableChartType.capacity_distribution: get_capacity_distribution_chart,
+    TableChartType.tags_distribution: get_tags_distribution_chart,
+}
 
 
 @router.get("/table/kpi")
@@ -100,3 +107,33 @@ def get_table_summary(payload = Depends(get_payload), db: Session = Depends(get_
         raise http_error
     except Exception:
         raise HTTPException(status_code=500, detail="Get table KPI report failed")
+
+
+@router.get("/table/charts")
+def get_table_chart(
+    payload = Depends(get_payload),
+    db: Session = Depends(get_db),
+    chart_type: TableChartType = Query(...),
+):
+    try:
+        if payload["role"] != "admin":
+            raise HTTPException(status_code=403, detail="Access denied")
+
+        chart_handler = TABLE_CHART_HANDLERS.get(chart_type)
+
+        if chart_handler is None:
+            raise HTTPException(status_code=400, detail="Invalid chart type")
+
+        data = chart_handler(db)
+
+        return response_handler(
+            status=True,
+            message="Get table chart report successful",
+            data=data,
+            status_code=200,
+        )
+    except HTTPException as http_error:
+        raise http_error
+    except Exception:
+        raise HTTPException(status_code=500, detail="Get table chart report failed")
+
